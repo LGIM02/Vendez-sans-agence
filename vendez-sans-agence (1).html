@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clef — Vendez votre maison sans agence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1C2B3A;
+    --ink-soft:#54636F;
+    --paper:#F3EFE3;
+    --paper-deep:#EAE4D3;
+    --line:#CFC6AD;
+    --brick:#A8472E;
+    --brick-deep:#8B3A25;
+    --verdigris:#5B7A6C;
+    --white:#FCFBF7;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:16px;
+    line-height:1.55;
+  }
+  h1,h2,h3{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    margin:0;
+    color:var(--ink);
+  }
+  p{margin:0;}
+  a{color:inherit;}
+  button{font-family:inherit;}
+
+  .wrap{
+    max-width:1140px;
+    margin:0 auto;
+    padding:0 32px;
+  }
+
+  /* ---------- NAV ---------- */
+  nav{
+    position:sticky; top:0; z-index:40;
+    background:rgba(243,239,227,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    height:68px;
+  }
+  .logo{
+    font-family:'Fraunces', serif;
+    font-size:1.3rem;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    display:flex; align-items:center; gap:8px;
+  }
+  .logo svg{width:22px;height:22px;}
+  .nav-links{display:flex; gap:28px; font-size:0.92rem; color:var(--ink-soft);}
+  .nav-links a{text-decoration:none; transition:color .15s;}
+  .nav-links a:hover{color:var(--brick);}
+  .nav-cta{
+    background:var(--ink); color:var(--white);
+    padding:9px 18px; border-radius:2px;
+    font-size:0.88rem; text-decoration:none;
+    border:none; cursor:pointer;
+  }
+  @media (max-width:760px){ .nav-links{display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    padding:88px 0 64px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero .wrap{
+    display:grid;
+    grid-template-columns:1.05fr 0.95fr;
+    gap:56px;
+    align-items:center;
+  }
+  .hero-eyebrow{
+    font-size:0.82rem;
+    color:var(--verdigris);
+    margin-bottom:18px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .hero-eyebrow .tick{width:16px; height:1px; background:var(--verdigris); display:inline-block;}
+  .hero h1{
+    font-size:clamp(2.2rem, 4vw, 3.15rem);
+    line-height:1.08;
+    letter-spacing:-0.01em;
+  }
+  .hero h1 em{
+    font-style:italic;
+    color:var(--brick);
+  }
+  .hero-sub{
+    margin-top:22px;
+    font-size:1.08rem;
+    color:var(--ink-soft);
+    max-width:46ch;
+  }
+  .hero-actions{
+    margin-top:32px;
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+  }
+  .btn-primary{
+    background:var(--brick);
+    color:var(--white);
+    border:none;
+    padding:14px 26px;
+    font-size:0.98rem;
+    border-radius:2px;
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-block;
+    transition:background .15s;
+  }
+  .btn-primary:hover{background:var(--brick-deep);}
+  .hero-note{font-size:0.85rem; color:var(--ink-soft);}
+
+  .plan-figure{
+    position:relative;
+    aspect-ratio:1/1;
+  }
+  .plan-figure svg{width:100%; height:100%;}
+
+  /* ---------- STATS RULER ---------- */
+  .stats{
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    padding:34px 0;
+  }
+  .stats .wrap{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:24px;
+  }
+  .stat{
+    padding-left:16px;
+    border-left:1px solid var(--line);
+  }
+  .stat .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1.7rem;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .stat .label{
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  @media (max-width:760px){
+    .hero .wrap{grid-template-columns:1fr;}
+    .plan-figure{max-width:320px; margin:0 auto;}
+    .stats .wrap{grid-template-columns:1fr; gap:18px;}
+  }
+
+  /* ---------- SECTION SHELL ---------- */
+  section{padding:88px 0;}
+  .section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:24px;
+    margin-bottom:44px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:20px;
+  }
+  .section-mark{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    color:var(--verdigris);
+  }
+  .section-head h2{
+    font-size:clamp(1.6rem, 2.6vw, 2.1rem);
+  }
+  .section-desc{
+    max-width:38ch; font-size:0.95rem; color:var(--ink-soft);
+    text-align:right;
+  }
+  @media (max-width:760px){
+    .section-head{flex-direction:column; align-items:flex-start;}
+    .section-desc{text-align:left;}
+  }
+
+  /* ---------- SIMULATOR ---------- */
+  .sim-box{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:2px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .sim-form{padding:40px; border-right:1px solid var(--line);}
+  .field{margin-bottom:20px;}
+  .field label{
+    display:block; font-size:0.82rem; color:var(--ink-soft); margin-bottom:6px;
+  }
+  .field select, .field input{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--paper);
+    font-family:inherit;
+    font-size:0.95rem;
+    color:var(--ink);
+  }
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .radio-group{display:flex; gap:8px; flex-wrap:wrap;}
+  .radio-pill{
+    border:1px solid var(--line);
+    padding:8px 14px;
+    border-radius:20px;
+    font-size:0.85rem;
+    cursor:pointer;
+    background:var(--paper);
+    color:var(--ink-soft);
+    transition:all .15s;
+  }
+  .radio-pill.active{
+    background:var(--ink); color:var(--white); border-color:var(--ink);
+  }
+  .sim-result{
+    padding:40px;
+    display:flex; flex-direction:column; justify-content:center;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, var(--paper-deep) 28px),
+      var(--white);
+  }
+  .sim-result .tag{font-size:0.82rem; color:var(--ink-soft); margin-bottom:8px;}
+  .sim-price{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:2.5rem;
+    font-weight:600;
+    color:var(--ink);
+    line-height:1;
+  }
+  .sim-range{font-size:0.85rem; color:var(--ink-soft); margin-top:6px;}
+  .sim-divider{height:1px; background:var(--line); margin:26px 0;}
+  .sim-compare{display:flex; justify-content:space-between; font-size:0.92rem; margin-bottom:10px;}
+  .sim-compare .v{font-family:'IBM Plex Mono', monospace;}
+  .sim-compare.save .v{color:var(--verdigris); font-weight:600;}
+  @media (max-width:760px){
+    .sim-box{grid-template-columns:1fr;}
+    .sim-form{border-right:none; border-bottom:1px solid var(--line); padding:28px;}
+    .sim-result{padding:28px;}
+  }
+
+  /* ---------- COMPARISON TABLE ---------- */
+  .compare-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.92rem;
+  }
+  .compare-table th, .compare-table td{
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+    text-align:left;
+  }
+  .compare-table th{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:1rem;
+  }
+  .compare-table th.us{color:var(--brick);}
+  .compare-table td.yes::before{content:"✓ "; color:var(--verdigris);}
+  .compare-table td.no::before{content:"— "; color:var(--ink-soft);}
+  .compare-table tr:first-child th{border-top:1px solid var(--line);}
+
+  /* ---------- STEPS ---------- */
+  .steps{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:0;
+  }
+  .step{
+    padding:20px 18px 0 0;
+    border-top:2px solid var(--ink);
+    position:relative;
+  }
+  .step .n{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.85rem;
+    color:var(--brick);
+    margin-bottom:10px;
+    display:block;
+  }
+  .step h3{font-size:1.02rem; margin-bottom:8px;}
+  .step p{font-size:0.85rem; color:var(--ink-soft);}
+  @media (max-width:900px){
+    .steps{grid-template-columns:1fr 1fr;}
+    .step{padding-bottom:24px;}
+  }
+  @media (max-width:560px){ .steps{grid-template-columns:1fr;} }
+
+  /* ---------- PRICING ---------- */
+  .pricing-box{
+    border:1px solid var(--ink);
+    padding:44px;
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:40px;
+    align-items:center;
+  }
+  .pricing-box .price{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:3rem;
+    font-weight:600;
+  }
+  .pricing-box .price span{font-size:1rem; color:var(--ink-soft); font-family:'IBM Plex Sans',sans-serif;}
+  .pricing-list{list-style:none; margin:18px 0 0; padding:0; font-size:0.92rem;}
+  .pricing-list li{
+    padding:8px 0;
+    border-bottom:1px solid var(--paper-deep);
+    display:flex; gap:10px;
+  }
+  .pricing-list li::before{content:"—"; color:var(--verdigris);}
+  @media (max-width:760px){ .pricing-box{grid-template-columns:1fr;} }
+
+  /* ---------- FOOTER ---------- */
+  footer{
+    border-top:1px solid var(--line);
+    padding:40px 0;
+  }
+  footer .wrap{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:0.82rem; color:var(--ink-soft);
+    flex-wrap:wrap; gap:12px;
+  }
+
+  .reveal{
+    opacity:0; transform:translateY(10px);
+    animation:rise .6s ease forwards;
+  }
+  @keyframes rise{ to{opacity:1; transform:translateY(0);} }
+  @media (prefers-reduced-motion: reduce){
+    .reveal{animation:none; opacity:1; transform:none;}
+    html{scroll-behavior:auto;}
+  }
+
+  :focus-visible{ outline:2px solid var(--brick); outline-offset:2px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 11L12 4l9 7" stroke="#1C2B3A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" stroke="#A8472E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Clef
+    </div>
+    <div class="nav-links">
+      <a href="#estimation">Estimation</a>
+      <a href="#comparatif">Comparatif</a>
+      <a href="#etapes">Étapes</a>
+      <a href="#tarif">Tarif</a>
+    </div>
+    <a href="#estimation" class="nav-cta">Estimer mon bien</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <div class="hero-eyebrow"><span class="tick"></span>Vente immobilière entre particuliers</div>
+      <h1>Vendez votre maison <em>vous-même</em>, sans en payer le prix</h1>
+      <p class="hero-sub">Une commission d'agence coûte en moyenne 5 à 6&nbsp;% du prix de vente. Sur un bien à 300&nbsp;000&nbsp;€, ça représente jusqu'à 18&nbsp;000&nbsp;€. On vous donne les outils pour vendre seul, sereinement — de l'estimation jusqu'au notaire.</p>
+      <div class="hero-actions">
+        <a href="#estimation" class="btn-primary">Estimer mon bien gratuitement</a>
+        <span class="hero-note">2 minutes, sans engagement</span>
+      </div>
+    </div>
+    <div class="plan-figure" aria-hidden="true">
+      <svg viewBox="0 0 400 400">
+        <rect x="60" y="90" width="280" height="220" fill="none" stroke="#1C2B3A" stroke-width="1.4"/>
+        <line x1="60" y1="200" x2="340" y2="200" stroke="#1C2B3A" stroke-width="1" stroke-dasharray="2 4"/>
+        <line x1="200" y1="90" x2="200" y2="310" stroke="#1C2B3A" stroke-width="1" stroke-dasharray="2 4"/>
+        <rect x="60" y="90" width="140" height="110" fill="none" stroke="#5B7A6C" stroke-width="1.4"/>
+        <rect x="200" y="90" width="140" height="110" fill="none" stroke="#5B7A6C" stroke-width="1.4"/>
+        <rect x="60" y="200" width="140" height="110" fill="none" stroke="#5B7A6C" stroke-width="1.4"/>
+        <rect x="200" y="200" width="140" height="110" fill="none" stroke="#A8472E" stroke-width="1.6"/>
+        <path d="M50 90 L200 40 L350 90" fill="none" stroke="#1C2B3A" stroke-width="1.4" stroke-linejoin="round"/>
+        <line x1="60" y1="330" x2="340" y2="330" stroke="#1C2B3A" stroke-width="0.8"/>
+        <line x1="60" y1="325" x2="60" y2="335" stroke="#1C2B3A" stroke-width="0.8"/>
+        <line x1="340" y1="325" x2="340" y2="335" stroke="#1C2B3A" stroke-width="0.8"/>
+        <text x="185" y="345" font-family="IBM Plex Mono" font-size="11" fill="#54636F">11,40 m</text>
+        <text x="270" y="255" font-family="IBM Plex Mono" font-size="10" fill="#8B3A25">salon</text>
+        <circle cx="270" cy="255" r="3" fill="#A8472E"/>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="wrap">
+    <div class="stat">
+      <div class="num">960 000</div>
+      <div class="label">transactions immobilières attendues en France en 2026</div>
+    </div>
+    <div class="stat">
+      <div class="num">101 jours</div>
+      <div class="label">délai de vente moyen d'une maison en 2025 (Century 21)</div>
+    </div>
+    <div class="stat">
+      <div class="num">5–6 %</div>
+      <div class="label">commission moyenne prélevée par une agence classique</div>
+    </div>
+  </div>
+</div>
+
+<section id="estimation">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-mark">01 — Estimation</div>
+        <h2>Combien vaut votre bien ?</h2>
+      </div>
+      <p class="section-desc">Basé sur les prix moyens au m² par ville et l'état du logement. Une première fourchette, à affiner ensuite avec de vrais comparables.</p>
+    </div>
+
+    <div class="sim-box">
+      <div class="sim-form">
+        <div class="field">
+          <label for="ville">Ville</label>
+          <select id="ville">
+            <option value="9707">Paris</option>
+            <option value="3965">Île-de-France (hors Paris)</option>
+            <option value="4797">Lyon</option>
+            <option value="4681">Bordeaux</option>
+            <option value="5157">Nice</option>
+            <option value="3818">Marseille</option>
+            <option value="3572">Toulouse</option>
+            <option value="4096">Rennes</option>
+            <option value="3506">Strasbourg</option>
+            <option value="3385">Lille</option>
+            <option value="2510" selected>Autre ville (moyenne nationale maison)</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="surface">Surface (m²)</label>
+            <input type="number" id="surface" value="90" min="10" max="1000">
+          </div>
+          <div class="field">
+            <label for="pieces">Nombre de pièces</label>
+            <input type="number" id="pieces" value="4" min="1" max="20">
+          </div>
+        </div>
+        <div class="field">
+          <label for="dpe">Diagnostic de performance énergétique (DPE)</label>
+          <select id="dpe">
+            <option value="1.24">A</option>
+            <option value="1.16">B</option>
+            <option value="1.08">C</option>
+            <option value="1" selected>D</option>
+            <option value="0.92">E</option>
+            <option value="0.84">F</option>
+            <option value="0.75">G</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>État du bien</label>
+          <div class="radio-group" id="etat-group">
+            <div class="radio-pill" data-val="0.85">À rénover</div>
+            <div class="radio-pill active" data-val="1">Correct</div>
+            <div class="radio-pill" data-val="1.12">Refait à neuf</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Équipements</label>
+          <div class="radio-group" id="equip-group">
+            <div class="radio-pill" data-val="jardin">Jardin</div>
+            <div class="radio-pill" data-val="piscine">Piscine</div>
+            <div class="radio-pill" data-val="garage">Garage</div>
+            <div class="radio-pill" data-val="terrasse">Terrasse</div>
+          </div>
+        </div>
+      </div>
+      <div class="sim-result">
+        <div class="tag">Estimation de prix de vente</div>
+        <div class="sim-price" id="prix-central">280 000 €</div>
+        <div class="sim-range" id="prix-range">Fourchette : 260 400 € – 299 600 €</div>
+        <div class="sim-divider"></div>
+        <div class="sim-compare">
+          <span>Commission agence (5,5 %)</span>
+          <span class="v" id="commission-agence">15 400 €</span>
+        </div>
+        <div class="sim-compare">
+          <span>Forfait Clef</span>
+          <span class="v">390 €</span>
+        </div>
+        <div class="sim-compare save">
+          <span>Ce que vous gardez en plus</span>
+          <span class="v" id="economie">15 010 €</span>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:14px;">Prix au m² et effet DPE basés sur les baromètres Century 21 et Notaires de France (2025). Équipements (jardin, piscine, garage, terrasse) : estimations indicatives, non issues d'une étude chiffrée publiée.</p>
+  </div>
+</section>
+
+<section id="comparatif">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-mark">02 — Comparatif</div>
+        <h2>Ce qui change par rapport aux alternatives</h2>
+      </div>
+      <p class="section-desc">Une simple annonce ne suffit pas. Voici ce qui est réellement inclus.</p>
+    </div>
+    <table class="compare-table">
+      <tr>
+        <th></th>
+        <th>Agence classique</th>
+        <th>Petite annonce seule</th>
+        <th class="us">Clef</th>
+      </tr>
+      <tr>
+        <td>Estimation du prix</td>
+        <td class="yes">Incluse</td>
+        <td class="no">À faire soi-même</td>
+        <td class="yes">Incluse</td>
+      </tr>
+      <tr>
+        <td>Diffusion multi-plateformes</td>
+        <td class="yes">Incluse</td>
+        <td class="no">Manuelle</td>
+        <td class="yes">Incluse</td>
+      </tr>
+      <tr>
+        <td>Diagnostics obligatoires</td>
+        <td class="yes">Gérés</td>
+        <td class="no">À organiser seul</td>
+        <td class="yes">Mise en relation partenaires</td>
+      </tr>
+      <tr>
+        <td>Qualification des acheteurs</td>
+        <td class="yes">Incluse</td>
+        <td class="no">Aucune</td>
+        <td class="yes">Incluse</td>
+      </tr>
+      <tr>
+        <td>Documents juridiques types</td>
+        <td class="yes">Inclus</td>
+        <td class="no">Absent</td>
+        <td class="yes">Inclus</td>
+      </tr>
+      <tr>
+        <td>Coût</td>
+        <td class="no">5–6 % du prix</td>
+        <td class="yes">Gratuit</td>
+        <td class="yes">Forfait fixe</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<section id="etapes">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-mark">03 — Parcours</div>
+        <h2>De l'estimation à la signature</h2>
+      </div>
+      <p class="section-desc">Le notaire reste obligatoire pour authentifier la vente — on vous accompagne sur tout ce qui se passe avant.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="n">1</span>
+        <h3>Estimer</h3>
+        <p>Fourchette de prix réaliste à partir des ventes comparables.</p>
+      </div>
+      <div class="step">
+        <span class="n">2</span>
+        <h3>Diagnostiquer</h3>
+        <p>DPE, amiante, plomb — mise en relation avec des diagnostiqueurs.</p>
+      </div>
+      <div class="step">
+        <span class="n">3</span>
+        <h3>Publier</h3>
+        <p>Annonce diffusée automatiquement sur les principales plateformes.</p>
+      </div>
+      <div class="step">
+        <span class="n">4</span>
+        <h3>Négocier</h3>
+        <p>Acheteurs qualifiés, scripts de négociation, suivi des visites.</p>
+      </div>
+      <div class="step">
+        <span class="n">5</span>
+        <h3>Signer</h3>
+        <p>Compromis type, puis passage chez le notaire pour l'acte final.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tarif">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-mark">04 — Tarif</div>
+        <h2>Un forfait, pas un pourcentage</h2>
+      </div>
+    </div>
+    <div class="pricing-box">
+      <div>
+        <h3 style="font-size:1.3rem; margin-bottom:6px;">Forfait Vente Complète</h3>
+        <p style="color:var(--ink-soft); font-size:0.92rem;">Payé uniquement si votre bien se vend — sinon, remboursé.</p>
+        <ul class="pricing-list">
+          <li>Estimation détaillée et fourchette de prix</li>
+          <li>Diffusion sur les principales plateformes d'annonces</li>
+          <li>Mise en relation diagnostiqueurs et notaires partenaires</li>
+          <li>Documents juridiques types (compromis, état des lieux)</li>
+          <li>Accompagnement à la négociation</li>
+        </ul>
+      </div>
+      <div>
+        <div class="price">390 € <span>tout compris</span></div>
+        <a href="#estimation" class="btn-primary" style="margin-top:20px; display:inline-block;">Commencer mon estimation</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Clef — vendre entre particuliers, sans commission au pourcentage.</span>
+    <span>Prototype de démonstration · données de marché indicatives</span>
+  </div>
+</footer>
+
+<script>
+  const villeSelect = document.getElementById('ville');
+  const surfaceInput = document.getElementById('surface');
+  const piecesInput = document.getElementById('pieces');
+  const etatGroup = document.getElementById('etat-group');
+  const dpeSelect = document.getElementById('dpe');
+  const prixCentral = document.getElementById('prix-central');
+  const prixRange = document.getElementById('prix-range');
+  const commissionAgence = document.getElementById('commission-agence');
+  const economie = document.getElementById('economie');
+
+  const FORFAIT = 390;
+  const TAUX_COMMISSION = 0.055;
+
+  const equipGroup = document.getElementById('equip-group');
+
+  let etatMultiplier = 1;
+  const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02 };
+  const equipActive = new Set();
+
+  etatGroup.addEventListener('click', (e) => {
+    const pill = e.target.closest('.radio-pill');
+    if (!pill) return;
+    [...etatGroup.children].forEach(c => c.classList.remove('active'));
+    pill.classList.add('active');
+    etatMultiplier = parseFloat(pill.dataset.val);
+    compute();
+  });
+
+  equipGroup.addEventListener('click', (e) => {
+    const pill = e.target.closest('.radio-pill');
+    if (!pill) return;
+    const val = pill.dataset.val;
+    pill.classList.toggle('active');
+    if (equipActive.has(val)) equipActive.delete(val);
+    else equipActive.add(val);
+    compute();
+  });
+
+  function formatEUR(n){
+    return Math.round(n).toLocaleString('fr-FR') + ' €';
+  }
+
+  function compute(){
+    const prixM2 = parseFloat(villeSelect.value);
+    const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
+    const pieces = Math.max(parseFloat(piecesInput.value) || 1, 1);
+
+    // léger ajustement selon le nombre de pièces relatif à la surface (compacité)
+    const piecesRatio = surface / pieces;
+    const compactAdj = piecesRatio < 18 ? 1.03 : piecesRatio > 35 ? 0.98 : 1;
+
+    const dpeMultiplier = parseFloat(dpeSelect.value);
+    let equipAdj = 1;
+    equipActive.forEach(v => equipAdj *= equipMultipliers[v]);
+
+    const central = prixM2 * surface * etatMultiplier * compactAdj * equipAdj * dpeMultiplier;
+    const low = central * 0.93;
+    const high = central * 1.07;
+
+    prixCentral.textContent = formatEUR(central);
+    prixRange.textContent = `Fourchette : ${formatEUR(low)} – ${formatEUR(high)}`;
+
+    const commission = central * TAUX_COMMISSION;
+    commissionAgence.textContent = formatEUR(commission);
+    economie.textContent = formatEUR(commission - FORFAIT);
+  }
+
+  [villeSelect, surfaceInput, piecesInput, dpeSelect].forEach(el => {
+    el.addEventListener('input', compute);
+    el.addEventListener('change', compute);
+  });
+
+  compute();
+</script>
+
+</body>
+</html>
