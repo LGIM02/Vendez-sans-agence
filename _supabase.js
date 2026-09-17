@@ -8,11 +8,11 @@ const { createClient } = require('@supabase/supabase-js');
 
 function getSupabaseClient() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
     throw new Error(
-      "Variables d'environnement manquantes : SUPABASE_URL et/ou SUPABASE_SERVICE_KEY. " +
+      "Variables d'environnement manquantes : SUPABASE_URL et/ou SUPABASE_SERVICE_ROLE_KEY. " +
       'Voir le README pour la configuration sur Vercel.'
     );
   }
