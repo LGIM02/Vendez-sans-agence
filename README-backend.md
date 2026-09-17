@@ -44,17 +44,21 @@ prototype ou un lancement en petit volume.
    **`service_role`** (pas la clé `anon` — la `service_role` a tous les
    droits et ne doit jamais apparaître dans le code du front-end)
 
-### 2. Ajouter les variables d'environnement sur Vercel
+### 2. Vérifier les variables d'environnement sur Vercel
 
-Dans ton projet Vercel : **Settings → Environment Variables**, ajoute :
+Si tu as connecté l'**intégration Supabase** directement depuis Vercel
+(Marketplace → Supabase), les variables sont déjà créées automatiquement —
+pas besoin de les ajouter à la main. Vérifie juste que ces deux-là sont
+bien présentes dans **Settings → Environment Variables** :
 
-| Nom                    | Valeur                                  |
-|-------------------------|------------------------------------------|
-| `SUPABASE_URL`          | l'URL notée à l'étape précédente          |
-| `SUPABASE_SERVICE_KEY`  | la clé `service_role` notée à l'étape précédente |
+| Nom                          | Rôle                                      |
+|-------------------------------|--------------------------------------------|
+| `SUPABASE_URL`                | URL du projet Supabase                     |
+| `SUPABASE_SERVICE_ROLE_KEY`   | clé tous droits, utilisée côté serveur uniquement |
 
-Redéploie ensuite le projet pour que les nouvelles variables soient prises
-en compte (Vercel te le proposera automatiquement).
+Si tu configures Supabase manuellement (sans passer par l'intégration
+Vercel), va dans **Project Settings → API** sur Supabase pour récupérer
+ces deux valeurs et les ajouter toi-même sur Vercel.
 
 ### 3. Pousser le code
 
