@@ -434,7 +434,7 @@
       <div class="sim-form">
         <div class="field">
           <label for="adresse">Adresse précise (optionnel, améliore la précision)</label>
-          <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix">
+          <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix, Marseille">
         </div>
         <div class="field">
           <label for="ville">Ville ou code postal</label>
@@ -483,9 +483,13 @@
         </div>
       </div>
       <div class="sim-result">
-        <div class="tag">Estimation de prix de vente</div>
+        <div class="tag">Estimation de prix de vente réel (basée sur des ventes signées)</div>
         <div class="sim-price" id="prix-central">280 000 €</div>
         <div class="sim-range" id="prix-range">Fourchette : 260 400 € – 299 600 €</div>
+        <div class="sim-compare" style="margin-top:14px;">
+          <span>Prix d'affichage conseillé pour l'annonce</span>
+          <span class="v" id="prix-affichage">296 800 €</span>
+        </div>
         <div class="sim-divider"></div>
         <div class="sim-compare">
           <span>Commission agence (5,5 %)</span>
@@ -501,7 +505,7 @@
         </div>
       </div>
     </div>
-    <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:14px;">Prix au m² basé sur les ventes réelles DVF de la commune quand elles sont disponibles (sinon moyenne nationale Century 21 2025). Effet DPE basé sur l'étude Notaires de France. Équipements (jardin, piscine, garage, terrasse) : estimations indicatives, non issues d'une étude chiffrée publiée.</p>
+    <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:14px;">Prix au m² basé sur les ventes réelles DVF de la commune quand elles sont disponibles (sinon moyenne nationale Century 21 2025). Effet DPE basé sur l'étude Notaires de France. Équipements (jardin, piscine, garage, terrasse, vue) : estimations indicatives, non issues d'une étude chiffrée publiée. Le "prix d'affichage conseillé" ajoute la marge de négociation moyenne observée sur le marché (environ 6 %, LPI-SeLoger / Empruntis-iad) — c'est cette valeur qu'il faut comparer aux annonces LeBonCoin ou SeLoger, pas l'estimation de vente réelle.</p>
   </div>
 </section>
 
@@ -645,12 +649,14 @@
   const dpeSelect = document.getElementById('dpe');
   const prixCentral = document.getElementById('prix-central');
   const prixRange = document.getElementById('prix-range');
+  const prixAffichage = document.getElementById('prix-affichage');
   const commissionAgence = document.getElementById('commission-agence');
   const economie = document.getElementById('economie');
   const equipGroup = document.getElementById('equip-group');
 
   const FORFAIT = 390;
   const TAUX_COMMISSION = 0.055;
+  const MARGE_NEGOCIATION = 0.06; // écart moyen prix affiché / prix de vente réel (LPI-SeLoger, Empruntis-iad)
   const PRIX_M2_NATIONAL = 2510; // repli tant qu'aucune donnée réelle n'a été trouvée
   const DISPERSION_NATIONALE = 0.07; // fourchette par défaut avant toute réponse de l'API
 
@@ -703,9 +709,12 @@
       : 'Recherche des ventes réelles dans cette commune…';
 
     try {
+      // Ville et adresse sont envoyées séparément (jamais concaténées) : si
+      // l'adresse se géocode correctement, elle prime seule sur la ville
+      // tapée à côté, qui ne sert que de repli si le géocodage échoue.
       const params = new URLSearchParams({ surface: String(surface), type: 'Maison' });
       if (ville) params.set('ville', ville);
-      if (adresse) params.set('adresse', `${adresse}, ${ville}`.trim());
+      if (adresse) params.set('adresse', adresse);
 
       const res = await fetch(`/api/estimate?${params.toString()}`);
       if (!res.ok) throw new Error('http_error');
@@ -713,6 +722,13 @@
 
       prixM2Courant = data.prix_m2 || PRIX_M2_NATIONAL;
       dispersionCourante = typeof data.dispersion === 'number' ? data.dispersion : DISPERSION_NATIONALE;
+
+      // Resynchronise le champ ville avec la commune réellement détectée par le
+      // géocodage de l'adresse — évite qu'une ville restée sur une ancienne
+      // valeur ne pollue une prochaine recherche.
+      if (adresse && data.commune && data.commune !== villeInput.value.trim()) {
+        villeInput.value = data.commune;
+      }
 
       if (data.source === 'dvf') {
         const zone = data.rayon_km
@@ -732,11 +748,18 @@
     compute();
   }
 
-  [villeInput, adresseInput].forEach(el => {
-    el.addEventListener('input', () => {
-      clearTimeout(villeLookupTimer);
-      villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
-    });
+  adresseInput.addEventListener('input', () => {
+    clearTimeout(villeLookupTimer);
+    villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+  });
+
+  // La ville ne relance une recherche que si le champ adresse est vide — sinon
+  // c'est le programme lui-même qui vient de mettre à jour ce champ (voir plus
+  // haut), et relancer ici créerait une recherche redondante à chaque frappe.
+  villeInput.addEventListener('input', () => {
+    if (adresseInput.value.trim()) return;
+    clearTimeout(villeLookupTimer);
+    villeLookupTimer = setTimeout(lookupVille, 600);
   });
 
   // La surface change aussi le pool de comparables (filtrage ± 40 %), donc on
@@ -764,6 +787,7 @@
 
     prixCentral.textContent = formatEUR(central);
     prixRange.textContent = `Fourchette : ${formatEUR(low)} – ${formatEUR(high)}`;
+    prixAffichage.textContent = formatEUR(central * (1 + MARGE_NEGOCIATION));
 
     const commission = central * TAUX_COMMISSION;
     commissionAgence.textContent = formatEUR(commission);
