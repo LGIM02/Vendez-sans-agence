@@ -195,18 +195,24 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   try {
-    const { ville, adresse, surface, type } = req.query;
-    if (!ville && !adresse) {
-      res.status(400).json({ error: 'Paramètre "ville" ou "adresse" requis.' });
+    const { ville, adresse, lat, lon, code_insee, surface, type } = req.query;
+    if (!ville && !adresse && !(lat && lon && code_insee)) {
+      res.status(400).json({ error: 'Paramètre "ville", "adresse", ou coordonnées (lat/lon/code_insee) requis.' });
       return;
     }
     const typeLocal = type === 'Appartement' ? 'Appartement' : 'Maison';
     const targetSurface = parseFloat(surface) || null;
 
-    // Priorité à l'adresse précise (géocodage BAN) si elle est fournie et exploitable.
     let commune = null;
     let targetCoords = null;
-    if (adresse) {
+
+    // Cas le plus fiable : coordonnées exactes déjà connues (adresse choisie
+    // dans une liste de suggestions côté front) — aucun géocodage à refaire.
+    if (lat && lon && code_insee) {
+      commune = { codeInsee: String(code_insee), nom: ville || String(code_insee) };
+      targetCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+    } else if (adresse) {
+      // Sinon, adresse en texte libre : on tente de la géocoder via la BAN.
       const geocoded = await geocodeAdresse(String(adresse));
       if (geocoded) {
         commune = { codeInsee: geocoded.codeInsee, nom: geocoded.nom };
