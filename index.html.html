@@ -217,6 +217,16 @@
     font-size:0.95rem;
     color:var(--ink);
   }
+  .suggestion-item{
+    padding:10px 12px;
+    font-size:0.9rem;
+    cursor:pointer;
+    border-bottom:1px solid var(--paper-deep);
+  }
+  .suggestion-item:hover, .suggestion-item.highlighted{
+    background:var(--paper-deep);
+  }
+  .suggestion-item:last-child{border-bottom:none;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
   .radio-group{display:flex; gap:8px; flex-wrap:wrap;}
   .radio-pill{
@@ -432,13 +442,14 @@
 
     <div class="sim-box">
       <div class="sim-form">
-        <div class="field">
+        <div class="field" style="position:relative;">
           <label for="adresse">Adresse précise (optionnel, améliore la précision)</label>
-          <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix, Marseille">
+          <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix, Marseille" autocomplete="off">
+          <div id="adresse-suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--white); border:1px solid var(--line); border-top:none; max-height:220px; overflow-y:auto;"></div>
         </div>
         <div class="field">
           <label for="ville">Ville ou code postal</label>
-          <input type="text" id="ville" value="Rennes" placeholder="ex. Rennes ou 35000">
+          <input type="text" id="ville" placeholder="ex. Rennes ou 35000">
           <div id="ville-status" style="font-size:0.78rem; color:var(--ink-soft); margin-top:6px;">Prix au m² national utilisé par défaut — tape une ville pour des données réelles.</div>
         </div>
         <div class="field-row">
@@ -664,6 +675,13 @@
   const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02, vue: 1.05 };
   const equipActive = new Set();
 
+  // Suggestions d'adresse (Base Adresse Nationale) — quand l'utilisateur choisit
+  // une suggestion, on connaît ses coordonnées exactes et on peut les envoyer
+  // directement à l'API, sans repasser par un géocodage côté serveur.
+  const adresseSuggestions = document.getElementById('adresse-suggestions');
+  let selectedAdresse = null; // { lat, lon, codeInsee, ville, label }
+  let suggestTimer = null;
+
   // Prix au m² et dispersion actuellement utilisés pour le calcul, mis à jour par l'API DVF.
   // La dispersion reflète la variabilité réelle des ventes comparables trouvées — une
   // commune avec peu de ventes très différentes aura une fourchette plus large qu'une
@@ -712,9 +730,17 @@
       // Ville et adresse sont envoyées séparément (jamais concaténées) : si
       // l'adresse se géocode correctement, elle prime seule sur la ville
       // tapée à côté, qui ne sert que de repli si le géocodage échoue.
+      // Si une suggestion BAN a été sélectionnée, on envoie directement ses
+      // coordonnées exactes — le serveur n'a alors plus besoin de re-géocoder.
       const params = new URLSearchParams({ surface: String(surface), type: 'Maison' });
       if (ville) params.set('ville', ville);
-      if (adresse) params.set('adresse', adresse);
+      if (selectedAdresse) {
+        params.set('lat', String(selectedAdresse.lat));
+        params.set('lon', String(selectedAdresse.lon));
+        params.set('code_insee', selectedAdresse.codeInsee);
+      } else if (adresse) {
+        params.set('adresse', adresse);
+      }
 
       const res = await fetch(`/api/estimate?${params.toString()}`);
       if (!res.ok) throw new Error('http_error');
@@ -748,9 +774,62 @@
     compute();
   }
 
+  // Interroge la BAN pour proposer des adresses réelles au fur et à mesure de
+  // la frappe — évite les adresses ambiguës ou mal orthographiées.
+  async function fetchSuggestions(query){
+    if (query.length < 4) { hideSuggestions(); return; }
+    try {
+      const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+      if (!res.ok) throw new Error('ban_error');
+      const data = await res.json();
+      renderSuggestions(data.features || []);
+    } catch (err) {
+      hideSuggestions(); // pas grave : l'utilisateur peut toujours taper l'adresse librement
+    }
+  }
+
+  function renderSuggestions(features){
+    if (features.length === 0) { hideSuggestions(); return; }
+    adresseSuggestions.innerHTML = '';
+    features.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      item.textContent = f.properties.label;
+      item.addEventListener('click', () => selectSuggestion(f));
+      adresseSuggestions.appendChild(item);
+    });
+    adresseSuggestions.style.display = 'block';
+  }
+
+  function hideSuggestions(){
+    adresseSuggestions.style.display = 'none';
+    adresseSuggestions.innerHTML = '';
+  }
+
+  function selectSuggestion(feature){
+    adresseInput.value = feature.properties.label;
+    selectedAdresse = {
+      lat: feature.geometry.coordinates[1],
+      lon: feature.geometry.coordinates[0],
+      codeInsee: feature.properties.citycode,
+      ville: feature.properties.city,
+    };
+    villeInput.value = feature.properties.city;
+    hideSuggestions();
+    lookupVille();
+  }
+
   adresseInput.addEventListener('input', () => {
+    selectedAdresse = null; // la frappe libre invalide une éventuelle sélection précédente
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(() => fetchSuggestions(adresseInput.value.trim()), 300);
+
     clearTimeout(villeLookupTimer);
-    villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+    villeLookupTimer = setTimeout(lookupVille, 700); // laisse la priorité aux suggestions si l'utilisateur en choisit une
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#adresse-suggestions') && e.target !== adresseInput) hideSuggestions();
   });
 
   // La ville ne relance une recherche que si le champ adresse est vide — sinon
