@@ -433,20 +433,9 @@
     <div class="sim-box">
       <div class="sim-form">
         <div class="field">
-          <label for="ville">Ville</label>
-          <select id="ville">
-            <option value="9707">Paris</option>
-            <option value="3965">Île-de-France (hors Paris)</option>
-            <option value="4797">Lyon</option>
-            <option value="4681">Bordeaux</option>
-            <option value="5157">Nice</option>
-            <option value="3818">Marseille</option>
-            <option value="3572">Toulouse</option>
-            <option value="4096">Rennes</option>
-            <option value="3506">Strasbourg</option>
-            <option value="3385">Lille</option>
-            <option value="2510" selected>Autre ville (moyenne nationale maison)</option>
-          </select>
+          <label for="ville">Ville ou code postal</label>
+          <input type="text" id="ville" value="Rennes" placeholder="ex. Rennes ou 35000">
+          <div id="ville-status" style="font-size:0.78rem; color:var(--ink-soft); margin-top:6px;">Prix au m² national utilisé par défaut — tape une ville pour des données réelles.</div>
         </div>
         <div class="field-row">
           <div class="field">
@@ -507,7 +496,7 @@
         </div>
       </div>
     </div>
-    <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:14px;">Prix au m² et effet DPE basés sur les baromètres Century 21 et Notaires de France (2025). Équipements (jardin, piscine, garage, terrasse) : estimations indicatives, non issues d'une étude chiffrée publiée.</p>
+    <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:14px;">Prix au m² basé sur les ventes réelles DVF de la commune quand elles sont disponibles (sinon moyenne nationale Century 21 2025). Effet DPE basé sur l'étude Notaires de France. Équipements (jardin, piscine, garage, terrasse) : estimations indicatives, non issues d'une étude chiffrée publiée.</p>
   </div>
 </section>
 
@@ -642,7 +631,8 @@
 </footer>
 
 <script>
-  const villeSelect = document.getElementById('ville');
+  const villeInput = document.getElementById('ville');
+  const villeStatus = document.getElementById('ville-status');
   const surfaceInput = document.getElementById('surface');
   const piecesInput = document.getElementById('pieces');
   const etatGroup = document.getElementById('etat-group');
@@ -651,15 +641,19 @@
   const prixRange = document.getElementById('prix-range');
   const commissionAgence = document.getElementById('commission-agence');
   const economie = document.getElementById('economie');
+  const equipGroup = document.getElementById('equip-group');
 
   const FORFAIT = 390;
   const TAUX_COMMISSION = 0.055;
-
-  const equipGroup = document.getElementById('equip-group');
+  const PRIX_M2_NATIONAL = 2510; // repli tant qu'aucune donnée réelle n'a été trouvée
 
   let etatMultiplier = 1;
   const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02 };
   const equipActive = new Set();
+
+  // Prix au m² actuellement utilisé pour le calcul, mis à jour par l'API DVF.
+  let prixM2Courant = PRIX_M2_NATIONAL;
+  let villeLookupTimer = null;
 
   etatGroup.addEventListener('click', (e) => {
     const pill = e.target.closest('.radio-pill');
@@ -684,8 +678,40 @@
     return Math.round(n).toLocaleString('fr-FR') + ' €';
   }
 
+  // Interroge le back-end /api/estimate (données DVF réelles). Si l'API n'est
+  // pas déployée ou indisponible, on reste silencieusement sur la moyenne nationale.
+  async function lookupVille(){
+    const ville = villeInput.value.trim();
+    if (!ville) return;
+
+    villeStatus.textContent = 'Recherche des ventes réelles dans cette commune…';
+
+    try {
+      const res = await fetch(`/api/estimate?ville=${encodeURIComponent(ville)}&type=Maison`);
+      if (!res.ok) throw new Error('http_error');
+      const data = await res.json();
+
+      prixM2Courant = data.prix_m2 || PRIX_M2_NATIONAL;
+
+      if (data.source === 'dvf') {
+        villeStatus.textContent = `${data.commune} — ${data.nb_transactions} vente(s) comparable(s) trouvée(s) sur ${data.periode} (fiabilité ${data.fiabilite}).`;
+      } else {
+        villeStatus.textContent = data.message || 'Moyenne nationale utilisée (aucune donnée locale trouvée).';
+      }
+    } catch (err) {
+      prixM2Courant = PRIX_M2_NATIONAL;
+      villeStatus.textContent = "Impossible de joindre l'API d'estimation (pas encore déployée, ou hors ligne) — moyenne nationale utilisée à la place.";
+    }
+
+    compute();
+  }
+
+  villeInput.addEventListener('input', () => {
+    clearTimeout(villeLookupTimer);
+    villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+  });
+
   function compute(){
-    const prixM2 = parseFloat(villeSelect.value);
     const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
     const pieces = Math.max(parseFloat(piecesInput.value) || 1, 1);
 
@@ -697,7 +723,7 @@
     let equipAdj = 1;
     equipActive.forEach(v => equipAdj *= equipMultipliers[v]);
 
-    const central = prixM2 * surface * etatMultiplier * compactAdj * equipAdj * dpeMultiplier;
+    const central = prixM2Courant * surface * etatMultiplier * compactAdj * equipAdj * dpeMultiplier;
     const low = central * 0.93;
     const high = central * 1.07;
 
@@ -709,12 +735,13 @@
     economie.textContent = formatEUR(commission - FORFAIT);
   }
 
-  [villeSelect, surfaceInput, piecesInput, dpeSelect].forEach(el => {
+  [surfaceInput, piecesInput, dpeSelect].forEach(el => {
     el.addEventListener('input', compute);
     el.addEventListener('change', compute);
   });
 
   compute();
+  lookupVille(); // recherche initiale pour la ville pré-remplie
 </script>
 
 </body>
