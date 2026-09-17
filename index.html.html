@@ -433,6 +433,10 @@
     <div class="sim-box">
       <div class="sim-form">
         <div class="field">
+          <label for="adresse">Adresse précise (optionnel, améliore la précision)</label>
+          <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix">
+        </div>
+        <div class="field">
           <label for="ville">Ville ou code postal</label>
           <input type="text" id="ville" value="Rennes" placeholder="ex. Rennes ou 35000">
           <div id="ville-status" style="font-size:0.78rem; color:var(--ink-soft); margin-top:6px;">Prix au m² national utilisé par défaut — tape une ville pour des données réelles.</div>
@@ -633,6 +637,7 @@
 
 <script>
   const villeInput = document.getElementById('ville');
+  const adresseInput = document.getElementById('adresse');
   const villeStatus = document.getElementById('ville-status');
   const surfaceInput = document.getElementById('surface');
   const piecesInput = document.getElementById('pieces');
@@ -689,13 +694,20 @@
   // moyenne nationale — le simulateur continue de fonctionner dans tous les cas.
   async function lookupVille(){
     const ville = villeInput.value.trim();
-    if (!ville) return;
+    const adresse = adresseInput.value.trim();
+    if (!ville && !adresse) return;
 
     const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
-    villeStatus.textContent = 'Recherche des ventes réelles dans cette commune…';
+    villeStatus.textContent = adresse
+      ? 'Géolocalisation de l\'adresse et recherche des ventes proches…'
+      : 'Recherche des ventes réelles dans cette commune…';
 
     try {
-      const res = await fetch(`/api/estimate?ville=${encodeURIComponent(ville)}&surface=${surface}&type=Maison`);
+      const params = new URLSearchParams({ surface: String(surface), type: 'Maison' });
+      if (ville) params.set('ville', ville);
+      if (adresse) params.set('adresse', `${adresse}, ${ville}`.trim());
+
+      const res = await fetch(`/api/estimate?${params.toString()}`);
       if (!res.ok) throw new Error('http_error');
       const data = await res.json();
 
@@ -703,10 +715,11 @@
       dispersionCourante = typeof data.dispersion === 'number' ? data.dispersion : DISPERSION_NATIONALE;
 
       if (data.source === 'dvf') {
-        const precision = data.surface_filtree
-          ? `comparables de surface proche (± 40 %)`
-          : `toutes surfaces confondues, faute d'assez de comparables proches`;
-        villeStatus.textContent = `${data.commune} — ${data.nb_transactions} vente(s) ${precision}, sur ${data.periode} (fiabilité ${data.fiabilite}).`;
+        const zone = data.rayon_km
+          ? `dans un rayon de ${data.rayon_km} km autour de l'adresse`
+          : `sur l'ensemble de la commune (${data.commune})`;
+        const precisionSurface = data.surface_filtree ? ', surface proche (± 40 %)' : '';
+        villeStatus.textContent = `${data.nb_transactions} vente(s) comparable(s) ${zone}${precisionSurface}, sur ${data.periode} (fiabilité ${data.fiabilite}).`;
       } else {
         villeStatus.textContent = data.message || 'Moyenne nationale utilisée (aucune donnée locale trouvée).';
       }
@@ -719,9 +732,11 @@
     compute();
   }
 
-  villeInput.addEventListener('input', () => {
-    clearTimeout(villeLookupTimer);
-    villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+  [villeInput, adresseInput].forEach(el => {
+    el.addEventListener('input', () => {
+      clearTimeout(villeLookupTimer);
+      villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+    });
   });
 
   // La surface change aussi le pool de comparables (filtrage ± 40 %), donc on
