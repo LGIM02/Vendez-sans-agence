@@ -474,6 +474,7 @@
             <div class="radio-pill" data-val="piscine">Piscine</div>
             <div class="radio-pill" data-val="garage">Garage</div>
             <div class="radio-pill" data-val="terrasse">Terrasse</div>
+            <div class="radio-pill" data-val="vue">Vue dégagée</div>
           </div>
         </div>
       </div>
@@ -646,13 +647,18 @@
   const FORFAIT = 390;
   const TAUX_COMMISSION = 0.055;
   const PRIX_M2_NATIONAL = 2510; // repli tant qu'aucune donnée réelle n'a été trouvée
+  const DISPERSION_NATIONALE = 0.07; // fourchette par défaut avant toute réponse de l'API
 
   let etatMultiplier = 1;
-  const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02 };
+  const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02, vue: 1.05 };
   const equipActive = new Set();
 
-  // Prix au m² actuellement utilisé pour le calcul, mis à jour par l'API DVF.
+  // Prix au m² et dispersion actuellement utilisés pour le calcul, mis à jour par l'API DVF.
+  // La dispersion reflète la variabilité réelle des ventes comparables trouvées — une
+  // commune avec peu de ventes très différentes aura une fourchette plus large qu'une
+  // commune avec beaucoup de ventes homogènes.
   let prixM2Courant = PRIX_M2_NATIONAL;
+  let dispersionCourante = DISPERSION_NATIONALE;
   let villeLookupTimer = null;
 
   etatGroup.addEventListener('click', (e) => {
@@ -678,28 +684,35 @@
     return Math.round(n).toLocaleString('fr-FR') + ' €';
   }
 
-  // Interroge le back-end /api/estimate (données DVF réelles). Si l'API n'est
-  // pas déployée ou indisponible, on reste silencieusement sur la moyenne nationale.
+  // Interroge le back-end /api/estimate (données DVF réelles, filtrées par surface).
+  // Si l'API n'est pas déployée ou indisponible, on reste silencieusement sur la
+  // moyenne nationale — le simulateur continue de fonctionner dans tous les cas.
   async function lookupVille(){
     const ville = villeInput.value.trim();
     if (!ville) return;
 
+    const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
     villeStatus.textContent = 'Recherche des ventes réelles dans cette commune…';
 
     try {
-      const res = await fetch(`/api/estimate?ville=${encodeURIComponent(ville)}&type=Maison`);
+      const res = await fetch(`/api/estimate?ville=${encodeURIComponent(ville)}&surface=${surface}&type=Maison`);
       if (!res.ok) throw new Error('http_error');
       const data = await res.json();
 
       prixM2Courant = data.prix_m2 || PRIX_M2_NATIONAL;
+      dispersionCourante = typeof data.dispersion === 'number' ? data.dispersion : DISPERSION_NATIONALE;
 
       if (data.source === 'dvf') {
-        villeStatus.textContent = `${data.commune} — ${data.nb_transactions} vente(s) comparable(s) trouvée(s) sur ${data.periode} (fiabilité ${data.fiabilite}).`;
+        const precision = data.surface_filtree
+          ? `comparables de surface proche (± 40 %)`
+          : `toutes surfaces confondues, faute d'assez de comparables proches`;
+        villeStatus.textContent = `${data.commune} — ${data.nb_transactions} vente(s) ${precision}, sur ${data.periode} (fiabilité ${data.fiabilite}).`;
       } else {
         villeStatus.textContent = data.message || 'Moyenne nationale utilisée (aucune donnée locale trouvée).';
       }
     } catch (err) {
       prixM2Courant = PRIX_M2_NATIONAL;
+      dispersionCourante = DISPERSION_NATIONALE;
       villeStatus.textContent = "Impossible de joindre l'API d'estimation (pas encore déployée, ou hors ligne) — moyenne nationale utilisée à la place.";
     }
 
@@ -709,6 +722,13 @@
   villeInput.addEventListener('input', () => {
     clearTimeout(villeLookupTimer);
     villeLookupTimer = setTimeout(lookupVille, 600); // debounce : évite un appel à chaque lettre tapée
+  });
+
+  // La surface change aussi le pool de comparables (filtrage ± 40 %), donc on
+  // relance la recherche — avec le même debounce que pour la ville.
+  surfaceInput.addEventListener('input', () => {
+    clearTimeout(villeLookupTimer);
+    villeLookupTimer = setTimeout(lookupVille, 600);
   });
 
   function compute(){
@@ -724,8 +744,8 @@
     equipActive.forEach(v => equipAdj *= equipMultipliers[v]);
 
     const central = prixM2Courant * surface * etatMultiplier * compactAdj * equipAdj * dpeMultiplier;
-    const low = central * 0.93;
-    const high = central * 1.07;
+    const low = central * (1 - dispersionCourante);
+    const high = central * (1 + dispersionCourante);
 
     prixCentral.textContent = formatEUR(central);
     prixRange.textContent = `Fourchette : ${formatEUR(low)} – ${formatEUR(high)}`;
@@ -735,13 +755,13 @@
     economie.textContent = formatEUR(commission - FORFAIT);
   }
 
-  [surfaceInput, piecesInput, dpeSelect].forEach(el => {
+  [piecesInput, dpeSelect].forEach(el => {
     el.addEventListener('input', compute);
     el.addEventListener('change', compute);
   });
 
   compute();
-  lookupVille(); // recherche initiale pour la ville pré-remplie
+  lookupVille(); // recherche initiale pour la ville et la surface pré-remplies
 </script>
 
 </body>
