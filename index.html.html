@@ -6,6 +6,7 @@
 <title>Clef — Vendez votre maison sans agence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
     --ink:#1C2B3A;
@@ -361,6 +362,118 @@
   }
 
   :focus-visible{ outline:2px solid var(--brick); outline-offset:2px; }
+
+  /* ---------- SIGNUP NAV BUTTON ---------- */
+  .nav-ghost{
+    background:none;
+    border:1px solid var(--ink);
+    color:var(--ink);
+    padding:8px 16px;
+    border-radius:2px;
+    font-size:0.88rem;
+    cursor:pointer;
+    font-family:inherit;
+    transition:background .15s, color .15s;
+  }
+  .nav-ghost:hover{ background:var(--ink); color:var(--white); }
+  .nav-actions{ display:flex; align-items:center; gap:10px; }
+
+  @keyframes pulseHighlight{
+    0%, 100%{ box-shadow:0 0 0 0 rgba(168,71,46,0); }
+    25%{ box-shadow:0 0 0 6px rgba(168,71,46,0.35); }
+    50%{ box-shadow:0 0 0 0 rgba(168,71,46,0); }
+    75%{ box-shadow:0 0 0 6px rgba(168,71,46,0.35); }
+  }
+  .pulse-highlight{ animation:pulseHighlight 0.9s ease-in-out 0s 2; }
+
+  /* ---------- CTA BAS DE PAGE ---------- */
+  .cta-final{
+    background:var(--ink);
+    color:var(--white);
+    padding:64px 0;
+    text-align:center;
+  }
+  .cta-final h2{ color:var(--white); font-size:clamp(1.6rem, 3vw, 2.2rem); }
+  .cta-final p{ color:#C7CDD3; margin-top:12px; font-size:0.98rem; }
+  .cta-final .btn-primary{ margin-top:26px; }
+
+  /* ---------- MODALE D'INSCRIPTION ---------- */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0; z-index:100;
+    background:rgba(28,43,58,0.55);
+    align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{
+    background:var(--white);
+    border:1px solid var(--ink);
+    width:100%; max-width:440px;
+    max-height:92vh;
+    overflow-y:auto;
+    padding:36px;
+    position:relative;
+  }
+  .modal-close{
+    position:absolute; top:18px; right:18px;
+    background:none; border:none; cursor:pointer;
+    font-size:1.3rem; line-height:1; color:var(--ink-soft);
+    padding:4px;
+  }
+  .modal-close:hover{ color:var(--ink); }
+  .modal-box h2{ font-size:1.5rem; margin-bottom:6px; }
+  .modal-sub{ font-size:0.88rem; color:var(--ink-soft); margin-bottom:24px; }
+
+  .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .form-field{ margin-bottom:16px; }
+  .form-field label{
+    display:block; font-size:0.82rem; color:var(--ink-soft); margin-bottom:6px;
+  }
+  .form-field input[type="text"], .form-field input[type="email"], .form-field input[type="password"]{
+    width:100%; padding:11px 12px;
+    border:1px solid var(--line); border-radius:2px;
+    background:var(--paper); font-family:inherit; font-size:0.95rem; color:var(--ink);
+  }
+  .form-field input.invalid{ border-color:var(--brick); }
+  .form-error{
+    font-size:0.78rem; color:var(--brick);
+    margin-top:5px; min-height:1em; display:none;
+  }
+  .form-error.show{ display:block; }
+  .password-wrap{ position:relative; }
+  .password-wrap input{ padding-right:42px !important; }
+  .password-toggle{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; padding:6px;
+    color:var(--ink-soft); font-size:0.8rem;
+  }
+  .password-toggle:hover{ color:var(--ink); }
+  .checkbox-field{
+    display:flex; align-items:flex-start; gap:9px;
+    font-size:0.84rem; color:var(--ink-soft); margin-bottom:14px; line-height:1.4;
+  }
+  .checkbox-field input{ margin-top:3px; flex-shrink:0; }
+  .checkbox-field a{ color:var(--ink); text-decoration:underline; }
+  .btn-submit{
+    width:100%;
+    background:var(--brick); color:var(--white); border:none;
+    padding:14px; font-size:0.98rem; border-radius:2px; cursor:pointer;
+    transition:background .15s, opacity .15s;
+  }
+  .btn-submit:disabled{ background:var(--line); color:var(--ink-soft); cursor:not-allowed; }
+  .btn-submit:not(:disabled):hover{ background:var(--brick-deep); }
+  .form-status{
+    font-size:0.85rem; margin-top:14px; text-align:center; min-height:1em;
+  }
+  .form-status.success{ color:var(--verdigris); }
+  .form-status.error{ color:var(--brick); }
+  .form-success-box{ text-align:center; padding:12px 0; }
+  .form-success-box .checkmark{ font-size:2.2rem; color:var(--verdigris); margin-bottom:10px; }
+  @media (max-width:480px){
+    .form-row{ grid-template-columns:1fr; }
+    .modal-box{ padding:26px; }
+  }
 </style>
 </head>
 <body>
@@ -377,9 +490,83 @@
       <a href="#etapes">Étapes</a>
       <a href="#tarif">Tarif</a>
     </div>
-    <a href="#estimation" class="nav-cta">Estimer mon bien</a>
+    <div class="nav-actions">
+      <button type="button" id="btn-open-signup" class="nav-ghost">Créer un compte</button>
+      <a href="#estimation" class="nav-cta">Estimer mon bien</a>
+    </div>
   </div>
 </nav>
+
+<div class="modal-overlay" id="signup-overlay" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="signup-close" aria-label="Fermer">✕</button>
+
+    <div id="signup-form-view">
+      <h2 id="signup-title">Créer un compte</h2>
+      <p class="modal-sub">Gratuit, en moins d'une minute.</p>
+
+      <form id="signup-form" novalidate>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="su-prenom">Prénom</label>
+            <input type="text" id="su-prenom" autocomplete="given-name" minlength="2" required>
+            <div class="form-error" id="err-prenom">Le prénom doit contenir au moins 2 caractères.</div>
+          </div>
+          <div class="form-field">
+            <label for="su-nom">Nom</label>
+            <input type="text" id="su-nom" autocomplete="family-name" minlength="2" required>
+            <div class="form-error" id="err-nom">Le nom doit contenir au moins 2 caractères.</div>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="su-email">Adresse e-mail</label>
+          <input type="email" id="su-email" autocomplete="email" required>
+          <div class="form-error" id="err-email">Veuillez saisir une adresse e-mail valide.</div>
+        </div>
+
+        <div class="form-field">
+          <label for="su-password">Mot de passe</label>
+          <div class="password-wrap">
+            <input type="password" id="su-password" autocomplete="new-password" required>
+            <button type="button" class="password-toggle" data-target="su-password" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+          <div class="form-error" id="err-password">Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.</div>
+        </div>
+
+        <div class="form-field">
+          <label for="su-password-confirm">Confirmation du mot de passe</label>
+          <div class="password-wrap">
+            <input type="password" id="su-password-confirm" autocomplete="new-password" required>
+            <button type="button" class="password-toggle" data-target="su-password-confirm" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+          <div class="form-error" id="err-password-confirm">Les mots de passe ne correspondent pas.</div>
+        </div>
+
+        <label class="checkbox-field">
+          <input type="checkbox" id="su-cgu" required>
+          <span>J'accepte les <a href="#cgu" target="_blank" rel="noopener">Conditions Générales d'Utilisation</a> et la <a href="#confidentialite" target="_blank" rel="noopener">Politique de Confidentialité</a>.</span>
+        </label>
+
+        <label class="checkbox-field">
+          <input type="checkbox" id="su-marketing">
+          <span>J'accepte de recevoir des communications commerciales.</span>
+        </label>
+
+        <button type="submit" class="btn-submit" id="signup-submit" disabled>Créer mon compte</button>
+        <div class="form-status" id="signup-status" aria-live="polite"></div>
+      </form>
+    </div>
+
+    <div id="signup-success-view" style="display:none;">
+      <div class="form-success-box">
+        <div class="checkmark">✓</div>
+        <h2>Votre compte a été créé avec succès.</h2>
+        <p class="modal-sub" id="signup-success-detail">Vous êtes maintenant connecté.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <header class="hero">
   <div class="wrap">
@@ -643,6 +830,14 @@
   </div>
 </section>
 
+<section class="cta-final">
+  <div class="wrap">
+    <h2>Prêt à vendre sans commission ?</h2>
+    <p>Créez votre compte gratuitement, l'estimation et l'annonce sont prêtes en quelques minutes.</p>
+    <button type="button" id="btn-bottom-signup" class="btn-primary">Créer un compte gratuitement</button>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <span>Clef — vendre entre particuliers, sans commission au pourcentage.</span>
@@ -880,6 +1075,195 @@
 
   compute();
   lookupVille(); // recherche initiale pour la ville et la surface pré-remplies
+</script>
+
+<script>
+  // ============================================================
+  // Création de compte (Supabase Auth)
+  //
+  // ⚠️ À COMPLÉTER avant mise en ligne : remplace les deux valeurs
+  // ci-dessous par celles de ton projet Supabase (Project Settings → API).
+  // L'URL et la clé "anon" sont faites pour être publiques côté
+  // navigateur — ce n'est PAS la clé "service_role" utilisée dans les
+  // fonctions serverless, qui elle doit rester secrète côté serveur.
+  // ============================================================
+  const SUPABASE_URL = 'https://TON-PROJET.supabase.co';
+  const SUPABASE_ANON_KEY = 'TON_ANON_KEY';
+
+  const supabaseClient = (SUPABASE_URL.includes('TON-PROJET') || !window.supabase)
+    ? null
+    : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---------- Éléments ----------
+  const overlay = document.getElementById('signup-overlay');
+  const btnOpenSignup = document.getElementById('btn-open-signup');
+  const btnBottomSignup = document.getElementById('btn-bottom-signup');
+  const btnCloseSignup = document.getElementById('signup-close');
+  const formView = document.getElementById('signup-form-view');
+  const successView = document.getElementById('signup-success-view');
+  const successDetail = document.getElementById('signup-success-detail');
+
+  const form = document.getElementById('signup-form');
+  const fPrenom = document.getElementById('su-prenom');
+  const fNom = document.getElementById('su-nom');
+  const fEmail = document.getElementById('su-email');
+  const fPassword = document.getElementById('su-password');
+  const fPasswordConfirm = document.getElementById('su-password-confirm');
+  const fCgu = document.getElementById('su-cgu');
+  const fMarketing = document.getElementById('su-marketing');
+  const submitBtn = document.getElementById('signup-submit');
+  const statusEl = document.getElementById('signup-status');
+
+  const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+  const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function setError(input, errId, show){
+    input.classList.toggle('invalid', show);
+    document.getElementById(errId).classList.toggle('show', show);
+  }
+
+  function validatePrenom(){
+    const ok = fPrenom.value.trim().length >= 2;
+    setError(fPrenom, 'err-prenom', !ok && fPrenom.value.length > 0);
+    return ok;
+  }
+  function validateNom(){
+    const ok = fNom.value.trim().length >= 2;
+    setError(fNom, 'err-nom', !ok && fNom.value.length > 0);
+    return ok;
+  }
+  function validateEmail(){
+    const ok = EMAIL_RULE.test(fEmail.value.trim());
+    setError(fEmail, 'err-email', !ok && fEmail.value.length > 0);
+    return ok;
+  }
+  function validatePassword(){
+    const ok = PASSWORD_RULE.test(fPassword.value);
+    setError(fPassword, 'err-password', !ok && fPassword.value.length > 0);
+    return ok;
+  }
+  function validatePasswordConfirm(){
+    const ok = fPasswordConfirm.value.length > 0 && fPasswordConfirm.value === fPassword.value;
+    setError(fPasswordConfirm, 'err-password-confirm', !ok && fPasswordConfirm.value.length > 0);
+    return ok;
+  }
+
+  function updateSubmitState(){
+    const allValid = validatePrenom() && validateNom() && validateEmail()
+      && validatePassword() && validatePasswordConfirm() && fCgu.checked;
+    submitBtn.disabled = !allValid;
+  }
+
+  [fPrenom, fNom, fEmail, fPassword, fPasswordConfirm].forEach(el => {
+    el.addEventListener('input', updateSubmitState);
+  });
+  fCgu.addEventListener('change', updateSubmitState);
+
+  // ---------- Afficher / masquer le mot de passe ----------
+  document.querySelectorAll('.password-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isHidden = target.type === 'password';
+      target.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? 'Masquer' : 'Afficher';
+      btn.setAttribute('aria-label', isHidden ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+    });
+  });
+
+  // ---------- Ouverture / fermeture de la modale ----------
+  let lastFocusedEl = null;
+
+  function openSignup(){
+    lastFocusedEl = document.activeElement;
+    overlay.classList.add('open');
+    formView.style.display = '';
+    successView.style.display = 'none';
+    form.reset();
+    updateSubmitState();
+    statusEl.textContent = '';
+    statusEl.className = 'form-status';
+    setTimeout(() => fPrenom.focus(), 50);
+    document.addEventListener('keydown', onKeydown);
+  }
+
+  function closeSignup(){
+    overlay.classList.remove('open');
+    document.removeEventListener('keydown', onKeydown);
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+
+  function onKeydown(e){
+    if (e.key === 'Escape') closeSignup();
+  }
+
+  btnOpenSignup.addEventListener('click', openSignup);
+  btnCloseSignup.addEventListener('click', closeSignup);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSignup(); });
+
+  // ---------- Bouton CTA bas de page : scroll + focus + pulse ----------
+  btnBottomSignup.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      btnOpenSignup.focus({ preventScroll: true });
+      btnOpenSignup.classList.add('pulse-highlight');
+      setTimeout(() => btnOpenSignup.classList.remove('pulse-highlight'), 2000);
+    }, 500);
+  });
+
+  // ---------- Soumission du formulaire ----------
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    updateSubmitState();
+    if (submitBtn.disabled) return;
+
+    if (!supabaseClient) {
+      statusEl.textContent = "Configuration manquante : ajoute ton URL et ta clé Supabase dans le code (voir commentaire en haut du script).";
+      statusEl.className = 'form-status error';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Création en cours…';
+    statusEl.textContent = '';
+    statusEl.className = 'form-status';
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: fEmail.value.trim(),
+      password: fPassword.value,
+      options: {
+        data: {
+          first_name: fPrenom.value.trim(),
+          last_name: fNom.value.trim(),
+          marketing_consent: fMarketing.checked,
+          cgu_accepted_at: new Date().toISOString(),
+        },
+      },
+    });
+
+    submitBtn.textContent = 'Créer mon compte';
+    submitBtn.disabled = false;
+
+    if (error) {
+      // Supabase renvoie une erreur explicite si l'e-mail est déjà utilisé
+      // (vérification d'unicité gérée nativement côté serveur).
+      statusEl.textContent = error.message.includes('already registered') || error.status === 422
+        ? 'Un compte existe déjà avec cette adresse e-mail.'
+        : `Une erreur est survenue : ${error.message}`;
+      statusEl.className = 'form-status error';
+      return;
+    }
+
+    // Selon la configuration du projet Supabase, une session est créée
+    // immédiatement (connexion automatique) ou une confirmation par e-mail
+    // est requise avant la première connexion — on gère les deux cas.
+    formView.style.display = 'none';
+    successView.style.display = '';
+    successDetail.textContent = data.session
+      ? 'Vous êtes maintenant connecté.'
+      : 'Vérifiez votre boîte mail pour confirmer votre adresse avant de vous connecter.';
+
+    setTimeout(closeSignup, 3000);
+  });
 </script>
 
 </body>
