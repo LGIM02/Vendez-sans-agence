@@ -1262,7 +1262,11 @@
       ? 'Vous êtes maintenant connecté.'
       : 'Vérifiez votre boîte mail pour confirmer votre adresse avant de vous connecter.';
 
-    setTimeout(closeSignup, 3000);
+    if (data.session) {
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
+    } else {
+      setTimeout(closeSignup, 3000);
+    }
   });
 </script>
 

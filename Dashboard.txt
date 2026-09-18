@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon projet de vente — Clef</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --ink:#1C2B3A; --ink-soft:#54636F;
+    --paper:#F3EFE3; --paper-deep:#EAE4D3;
+    --line:#CFC6AD; --brick:#A8472E; --brick-deep:#8B3A25;
+    --verdigris:#5B7A6C; --white:#FCFBF7;
+    --amber:#B8862E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; font-size:16px; line-height:1.55;
+  }
+  h1,h2,h3{ font-family:'Fraunces', serif; font-weight:500; margin:0; color:var(--ink); }
+  p{margin:0;}
+  button, input, select, textarea{ font-family:inherit; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+
+  /* ---------- AUTH GATE ---------- */
+  #auth-gate{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .auth-box{
+    background:var(--white); border:1px solid var(--ink); padding:40px; width:100%; max-width:380px;
+  }
+  .auth-box h1{ font-size:1.5rem; margin-bottom:6px; }
+  .auth-box p.sub{ font-size:0.88rem; color:var(--ink-soft); margin-bottom:24px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:0.82rem; color:var(--ink-soft); margin-bottom:6px; }
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:2px;
+    background:var(--paper); font-size:0.95rem; color:var(--ink);
+  }
+  .btn-primary{
+    background:var(--brick); color:var(--white); border:none; padding:13px 22px;
+    font-size:0.95rem; border-radius:2px; cursor:pointer; width:100%;
+  }
+  .btn-primary:hover{ background:var(--brick-deep); }
+  .btn-primary:disabled{ background:var(--line); color:var(--ink-soft); cursor:not-allowed; }
+  .btn-ghost{
+    background:none; border:1px solid var(--ink); color:var(--ink); padding:10px 18px;
+    font-size:0.88rem; border-radius:2px; cursor:pointer;
+  }
+  .btn-ghost:hover{ background:var(--ink); color:var(--white); }
+  .auth-error{ font-size:0.82rem; color:var(--brick); margin-top:10px; min-height:1em; }
+  .auth-switch{ font-size:0.85rem; color:var(--ink-soft); margin-top:18px; text-align:center; }
+  .auth-switch a{ color:var(--ink); cursor:pointer; text-decoration:underline; }
+
+  /* ---------- APP SHELL ---------- */
+  #app{ display:none; }
+  header.dash-header{
+    background:var(--white); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:30;
+  }
+  header.dash-header .wrap{
+    display:flex; align-items:center; justify-content:space-between; height:68px; gap:16px;
+  }
+  .logo{ font-family:'Fraunces', serif; font-size:1.2rem; font-weight:600; flex-shrink:0; }
+  .header-adresse{
+    font-size:0.85rem; color:var(--ink-soft); flex:1; text-align:center;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .header-right{ display:flex; align-items:center; gap:14px; flex-shrink:0; }
+  .notif-btn{
+    position:relative; background:none; border:1px solid var(--line); border-radius:2px;
+    padding:8px 10px; cursor:pointer; font-size:0.9rem;
+  }
+  .notif-dot{
+    position:absolute; top:-4px; right:-4px; background:var(--brick); color:var(--white);
+    font-size:0.65rem; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  }
+  .notif-panel{
+    display:none; position:absolute; top:56px; right:24px; width:280px; max-height:320px; overflow-y:auto;
+    background:var(--white); border:1px solid var(--ink); z-index:40; padding:8px 0;
+  }
+  .notif-panel.open{ display:block; }
+  .notif-item{ padding:12px 16px; font-size:0.85rem; border-bottom:1px solid var(--paper-deep); }
+  .notif-item:last-child{ border-bottom:none; }
+  .notif-empty{ padding:16px; font-size:0.85rem; color:var(--ink-soft); text-align:center; }
+  .account-menu{ position:relative; }
+  .account-btn{
+    background:none; border:1px solid var(--line); border-radius:2px; padding:8px 14px;
+    cursor:pointer; font-size:0.88rem; color:var(--ink);
+  }
+  .account-panel{
+    display:none; position:absolute; top:44px; right:0; background:var(--white); border:1px solid var(--ink);
+    padding:10px; width:170px; z-index:40;
+  }
+  .account-panel.open{ display:block; }
+  .account-panel button{
+    width:100%; text-align:left; background:none; border:none; padding:8px 6px; font-size:0.86rem;
+    cursor:pointer; color:var(--ink);
+  }
+  .account-panel button:hover{ background:var(--paper); }
+
+  /* ---------- PROGRESS BANNER ---------- */
+  .progress-banner{ background:var(--ink); color:var(--white); padding:22px 0; }
+  .progress-banner .wrap{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .progress-pct{ font-family:'IBM Plex Mono', monospace; font-size:1.6rem; font-weight:600; flex-shrink:0; }
+  .progress-bar-track{ flex:1; min-width:160px; height:6px; background:rgba(255,255,255,0.2); border-radius:3px; overflow:hidden; }
+  .progress-bar-fill{ height:100%; background:var(--brick); transition:width .4s ease; }
+  .progress-label{ font-size:0.85rem; color:#C7CDD3; flex-shrink:0; }
+
+  main{ padding:36px 0 80px; }
+  section{ margin-bottom:48px; }
+  .section-title{ font-size:1.2rem; margin-bottom:18px; }
+
+  /* ---------- ONBOARDING ---------- */
+  .onboarding-box{
+    background:var(--white); border:1px solid var(--ink); padding:32px; text-align:center;
+  }
+  .onboarding-box h2{ font-size:1.3rem; margin-bottom:8px; }
+  .onboarding-box p{ color:var(--ink-soft); font-size:0.92rem; margin-bottom:22px; }
+  .onboarding-form{ display:grid; gap:12px; max-width:360px; margin:0 auto; text-align:left; }
+
+  /* ---------- ACTION RECOMMANDÉE ---------- */
+  .action-banner{
+    background:var(--white); border:1px solid var(--brick); padding:20px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .action-banner .label{ font-size:0.78rem; color:var(--brick); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.04em; }
+  .action-banner .title{ font-size:1.05rem; }
+
+  /* ---------- CARTES SERVICES ---------- */
+  .services-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; }
+  .service-card{
+    background:var(--white); border:1px solid var(--line); padding:22px; display:flex; flex-direction:column; gap:10px;
+  }
+  .service-card h3{ font-size:1.05rem; }
+  .service-card .resume{ font-size:0.85rem; color:var(--ink-soft); flex:1; }
+  .statut-pill{
+    display:inline-block; font-size:0.75rem; padding:4px 10px; border-radius:20px; width:fit-content;
+    background:var(--paper-deep); color:var(--ink-soft);
+  }
+  .statut-pill.ok{ background:#E3EAE6; color:var(--verdigris); }
+  .statut-pill.attention{ background:#F3E4DC; color:var(--brick); }
+  .maj-date{ font-size:0.75rem; color:var(--ink-soft); }
+  .btn-detail{
+    background:none; border:1px solid var(--ink); color:var(--ink); padding:8px 14px;
+    font-size:0.85rem; border-radius:2px; cursor:pointer; align-self:flex-start;
+  }
+  .btn-detail:hover{ background:var(--ink); color:var(--white); }
+
+  /* ---------- VUE D'ENSEMBLE (8 ÉTAPES) ---------- */
+  .stepper{ display:flex; overflow-x:auto; gap:0; padding-bottom:6px; }
+  .stepper-step{
+    flex:1; min-width:110px; text-align:center; padding:14px 8px 0; border-top:3px solid var(--line); position:relative;
+  }
+  .stepper-step.done{ border-top-color:var(--verdigris); }
+  .stepper-step .num{ font-family:'IBM Plex Mono', monospace; font-size:0.78rem; color:var(--ink-soft); }
+  .stepper-step.done .num{ color:var(--verdigris); }
+  .stepper-step .label{ font-size:0.8rem; margin-top:4px; }
+
+  /* ---------- DÉTAIL DE SERVICE ---------- */
+  .detail-panel{
+    display:none; background:var(--white); border:1px solid var(--ink); padding:28px; margin-top:14px;
+  }
+  .detail-panel.open{ display:block; }
+  .detail-panel h3{ font-size:1.15rem; margin-bottom:16px; }
+  .detail-close{ float:right; background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--ink-soft); }
+  table.data-table{ width:100%; border-collapse:collapse; font-size:0.88rem; margin-bottom:18px; }
+  table.data-table th, table.data-table td{ padding:9px 10px; border-bottom:1px solid var(--paper-deep); text-align:left; }
+  table.data-table th{ color:var(--ink-soft); font-weight:500; font-size:0.78rem; }
+  .inline-form{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; align-items:end; margin-top:10px; }
+  .inline-form .field{ margin-bottom:0; }
+  .inline-form button{
+    background:var(--ink); color:var(--white); border:none; padding:10px 16px; border-radius:2px;
+    cursor:pointer; font-size:0.85rem; height:fit-content;
+  }
+  select.statut-select{ padding:6px 8px; border:1px solid var(--line); border-radius:2px; background:var(--paper); font-size:0.85rem; }
+
+  .loading-msg, .empty-msg{ font-size:0.88rem; color:var(--ink-soft); padding:16px 0; }
+
+  @media (max-width:760px){
+    .header-adresse{ display:none; }
+    .services-grid{ grid-template-columns:1fr; }
+    .stepper{ flex-wrap:nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- PORTE D'ENTRÉE : affichée tant qu'aucune session n'est active -->
+<!-- ============================================================ -->
+<div id="auth-gate">
+  <div class="auth-box">
+    <h1>Mon projet de vente</h1>
+    <p class="sub">Connectez-vous pour accéder à votre tableau de bord.</p>
+
+    <form id="login-form">
+      <div class="field">
+        <label for="login-email">Adresse e-mail</label>
+        <input type="email" id="login-email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="login-password">Mot de passe</label>
+        <input type="password" id="login-password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-primary" id="login-submit">Se connecter</button>
+      <div class="auth-error" id="login-error"></div>
+    </form>
+
+    <div class="auth-switch">Pas encore de compte ? <a href="vendez-sans-agence.html">Créez-en un depuis la page d'accueil</a></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- APPLICATION (visible une fois connecté) -->
+<!-- ============================================================ -->
+<div id="app">
+  <header class="dash-header">
+    <div class="wrap">
+      <div class="logo">Clef</div>
+      <div class="header-adresse" id="header-adresse">Aucun projet configuré</div>
+      <div class="header-right">
+        <button class="notif-btn" id="notif-btn" aria-label="Notifications">
+          🔔<span class="notif-dot" id="notif-count" style="display:none;">0</span>
+        </button>
+        <div class="notif-panel" id="notif-panel"></div>
+        <div class="account-menu">
+          <button class="account-btn" id="account-btn">Mon compte ▾</button>
+          <div class="account-panel" id="account-panel">
+            <button id="btn-logout">Se déconnecter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="progress-banner">
+    <div class="wrap">
+      <div class="progress-pct" id="progress-pct">0 %</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar-fill" style="width:0%;"></div></div>
+      <div class="progress-label">de votre vente est complété</div>
+    </div>
+  </div>
+
+  <main class="wrap">
+
+    <!-- Assistant de démarrage : affiché uniquement si aucun bien n'est configuré -->
+    <section id="onboarding-section" style="display:none;">
+      <div class="onboarding-box">
+        <h2>Configurons votre projet de vente</h2>
+        <p>Quelques informations pour démarrer — vous pourrez tout compléter ensuite.</p>
+        <form class="onboarding-form" id="onboarding-form">
+          <div class="field">
+            <label for="ob-ville">Ville du bien</label>
+            <input type="text" id="ob-ville" required placeholder="ex. Rennes">
+          </div>
+          <div class="field">
+            <label for="ob-surface">Surface (m²)</label>
+            <input type="number" id="ob-surface" required min="10" placeholder="ex. 90">
+          </div>
+          <div class="field">
+            <label for="ob-email">E-mail de contact pour les acheteurs</label>
+            <input type="email" id="ob-email" required placeholder="vous@exemple.fr">
+          </div>
+          <button type="submit" class="btn-primary">Créer mon projet</button>
+          <div class="auth-error" id="onboarding-error"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Le reste du dashboard n'apparaît que si un projet existe -->
+    <div id="dashboard-content" style="display:none;">
+
+      <section>
+        <div class="action-banner">
+          <div>
+            <div class="label">Prochaine action recommandée</div>
+            <div class="title" id="action-title">Chargement…</div>
+          </div>
+          <button class="btn-primary" style="width:auto;" id="action-btn">Commencer</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">Mes services</h2>
+        <div class="services-grid" id="services-grid"><div class="loading-msg">Chargement des services…</div></div>
+      </section>
+
+      <section>
+        <h2 class="section-title">Vue d'ensemble du parcours</h2>
+        <div class="stepper" id="stepper"></div>
+      </section>
+
+      <!-- Panneaux de détail, un par service, repliés par défaut -->
+      <section id="detail-estimation" class="detail-panel">
+        <button class="detail-close" data-close>✕</button>
+        <h3>Estimation du prix</h3>
+        <table class="data-table" id="table-estimations"><tbody></tbody></table>
+        <a href="vendez-sans-agence.html#estimation" class="btn-ghost">Faire une nouvelle estimation</a>
+      </section>
+
+      <section id="detail-annonce" class="detail-panel">
+        <button class="detail-close" data-close>✕</button>
+        <h3>Annonce prête à publier</h3>
+        <form id="annonce-form">
+          <div class="field">
+            <label for="an-titre">Titre de l'annonce</label>
+            <input type="text" id="an-titre" placeholder="ex. Maison lumineuse avec jardin, proche centre-ville">
+          </div>
+          <div class="field">
+            <label for="an-description">Description</label>
+            <textarea id="an-description" rows="4" placeholder="Décrivez le bien…"></textarea>
+          </div>
+          <div class="field">
+            <label for="an-photos">Photos (une URL par ligne)</label>
+            <textarea id="an-photos" rows="3" placeholder="https://…"></textarea>
+          </div>
+          <div class="field">
+            <label for="an-statut">Statut</label>
+            <select id="an-statut">
+              <option value="brouillon">Brouillon</option>
+              <option value="a_completer">À compléter</option>
+              <option value="prete_a_publier">Prête à publier</option>
+              <option value="publiee">Publiée</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary" style="width:auto;">Enregistrer</button>
+        </form>
+      </section>
+
+      <section id="detail-diagnostics" class="detail-panel">
+        <button class="detail-close" data-close>✕</button>
+        <h3>Diagnostics obligatoires</h3>
+        <table class="data-table" id="table-diagnostics"><tbody></tbody></table>
+      </section>
+
+      <section id="detail-acheteurs" class="detail-panel">
+        <button class="detail-close" data-close>✕</button>
+        <h3>Qualification des acheteurs</h3>
+        <table class="data-table" id="table-acheteurs"><tbody></tbody></table>
+        <form class="inline-form" id="acheteur-form">
+          <div class="field"><label>Nom</label><input type="text" id="ac-nom" required></div>
+          <div class="field"><label>E-mail</label><input type="email" id="ac-email" required></div>
+          <div class="field"><label>Téléphone</label><input type="text" id="ac-tel"></div>
+          <button type="submit">Ajouter</button>
+        </form>
+      </section>
+
+      <section id="detail-documents" class="detail-panel">
+        <button class="detail-close" data-close>✕</button>
+        <h3>Documents juridiques</h3>
+        <table class="data-table" id="table-documents"><tbody></tbody></table>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ============================================================
+// Configuration Supabase — mêmes identifiants que la page principale.
+// ============================================================
+const SUPABASE_URL = 'https://pcgtofxvboanybiffeaa.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjZ3RvZnh2Ym9hbnliaWZmZWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTM2NTMsImV4cCI6MjEwNTEyOTY1M30.MCZk_Zb5Qv07p6CIXbcI-AdthYD6TraIxjl2WEFSMj0';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const DIAGNOSTIC_TYPES = [
+  { type: 'dpe', label: 'DPE (performance énergétique)' },
+  { type: 'amiante', label: 'Amiante' },
+  { type: 'plomb_crep', label: 'Plomb (CREP)' },
+  { type: 'termites', label: 'Termites' },
+  { type: 'gaz', label: 'Installation gaz' },
+  { type: 'electricite', label: 'Installation électrique' },
+  { type: 'erp', label: 'État des risques et pollutions (ERP)' },
+  { type: 'assainissement', label: 'Assainissement non collectif' },
+  { type: 'carrez', label: 'Métrage Carrez' },
+];
+const DOCUMENT_TYPES = [
+  { type: 'diagnostic_technique', label: 'Dossier de diagnostic technique' },
+  { type: 'titre_propriete', label: 'Titre de propriété' },
+  { type: 'taxe_fonciere', label: 'Dernier avis de taxe foncière' },
+  { type: 'compromis_vente', label: 'Compromis de vente' },
+  { type: 'attestation_assurance', label: "Attestation d'assurance habitation" },
+  { type: 'plan_cadastral', label: 'Plan cadastral' },
+];
+
+let currentUser = null;
+let currentAnnonce = null;
+
+// ---------- Bascule porte d'entrée / application ----------
+function showApp(){
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+function showGate(){
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ---------- Connexion ----------
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('login-submit');
+  const errEl = document.getElementById('login-error');
+  btn.disabled = true; btn.textContent = 'Connexion…'; errEl.textContent = '';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: document.getElementById('login-email').value.trim(),
+    password: document.getElementById('login-password').value,
+  });
+
+  btn.disabled = false; btn.textContent = 'Se connecter';
+
+  if (error) {
+    errEl.textContent = 'E-mail ou mot de passe incorrect.';
+    return;
+  }
+  await initDashboard(data.user);
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+});
+
+// ---------- Menus déroulants (compte / notifications) ----------
+document.getElementById('account-btn').addEventListener('click', () => {
+  document.getElementById('account-panel').classList.toggle('open');
+  document.getElementById('notif-panel').classList.remove('open');
+});
+document.getElementById('notif-btn').addEventListener('click', () => {
+  document.getElementById('notif-panel').classList.toggle('open');
+  document.getElementById('account-panel').classList.remove('open');
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.account-menu')) document.getElementById('account-panel').classList.remove('open');
+  if (!e.target.closest('#notif-btn') && !e.target.closest('#notif-panel')) document.getElementById('notif-panel').classList.remove('open');
+});
+
+// ---------- Panneaux de détail ----------
+document.querySelectorAll('.btn-detail').forEach(btn => {});
+function openDetail(id){
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+  const panel = document.getElementById('detail-' + id);
+  panel.classList.add('open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.detail-panel').classList.remove('open'));
+});
+
+// ---------- Initialisation au chargement ----------
+(async function init(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session && session.user) {
+    await initDashboard(session.user);
+  } else {
+    showGate();
+  }
+})();
+
+async function initDashboard(user){
+  currentUser = user;
+  showApp();
+
+  const prenom = user.user_metadata?.first_name || '';
+  document.getElementById('account-btn').textContent = (prenom ? prenom : 'Mon compte') + ' ▾';
+
+  const { data: annonces } = await supabaseClient
+    .from('annonces')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!annonces || annonces.length === 0) {
+    document.getElementById('onboarding-section').style.display = 'block';
+    document.getElementById('dashboard-content').style.display = 'none';
+    return;
+  }
+
+  currentAnnonce = annonces[0];
+  document.getElementById('onboarding-section').style.display = 'none';
+  document.getElementById('dashboard-content').style.display = 'block';
+  document.getElementById('header-adresse').textContent = currentAnnonce.ville || 'Projet en cours';
+
+  await loadAll();
+}
+
+// ---------- Création du premier projet (assistant de démarrage) ----------
+document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('onboarding-error');
+  errEl.textContent = '';
+
+  const { data, error } = await supabaseClient.from('annonces').insert([{
+    user_id: currentUser.id,
+    ville: document.getElementById('ob-ville').value.trim(),
+    surface: parseFloat(document.getElementById('ob-surface').value),
+    contact_email: document.getElementById('ob-email').value.trim(),
+    statut: 'brouillon',
+  }]).select().single();
+
+  if (error) {
+    errEl.textContent = "Une erreur est survenue, réessayez.";
+    return;
+  }
+
+  currentAnnonce = data;
+  document.getElementById('onboarding-section').style.display = 'none';
+  document.getElementById('dashboard-content').style.display = 'block';
+  document.getElementById('header-adresse').textContent = currentAnnonce.ville;
+  await loadAll();
+});
+
+// ---------- Chargement de toutes les données du projet actif ----------
+async function loadAll(){
+  const [estimations, diagnostics, acheteurs, documents] = await Promise.all([
+    supabaseClient.from('estimations').select('*').eq('annonce_id', currentAnnonce.id).order('created_at', { ascending: false }),
+    supabaseClient.from('diagnostics').select('*').eq('annonce_id', currentAnnonce.id),
+    supabaseClient.from('acheteurs').select('*').eq('annonce_id', currentAnnonce.id).order('created_at', { ascending: false }),
+    supabaseClient.from('documents').select('*').eq('annonce_id', currentAnnonce.id),
+  ]);
+
+  renderServiceCards(estimations.data || [], diagnostics.data || [], acheteurs.data || [], documents.data || []);
+  renderStepper(estimations.data || [], diagnostics.data || []);
+  renderEstimations(estimations.data || []);
+  renderDiagnostics(diagnostics.data || []);
+  renderAcheteurs(acheteurs.data || []);
+  renderDocuments(documents.data || []);
+  renderAnnonceForm();
+  renderNotifications(diagnostics.data || [], acheteurs.data || []);
+  renderNextAction(estimations.data || [], diagnostics.data || []);
+}
+
+// ---------- Cartes "Mes services" ----------
+function renderServiceCards(estimations, diagnostics, acheteurs, documents){
+  const dernierePrix = estimations[0]?.prix_estime;
+  const diagRealises = diagnostics.filter(d => d.statut === 'realise').length;
+  const acheteursActifs = acheteurs.filter(a => !['perdu'].includes(a.statut)).length;
+  const docsDisponibles = documents.filter(d => d.statut === 'disponible').length;
+
+  const cards = [
+    {
+      id: 'estimation', nom: 'Estimation du prix',
+      resume: dernierePrix ? `Dernière estimation : ${Math.round(dernierePrix).toLocaleString('fr-FR')} €` : 'Aucune estimation réalisée',
+      statut: dernierePrix ? 'ok' : 'attention',
+      statutLabel: dernierePrix ? 'Estimée' : 'À réaliser',
+      maj: estimations[0]?.created_at,
+    },
+    {
+      id: 'annonce', nom: 'Annonce prête à publier',
+      resume: currentAnnonce.titre ? currentAnnonce.titre : 'Titre et description à rédiger',
+      statut: currentAnnonce.statut === 'publiee' ? 'ok' : 'attention',
+      statutLabel: statutAnnonceLabel(currentAnnonce.statut),
+      maj: currentAnnonce.created_at,
+    },
+    {
+      id: 'diagnostics', nom: 'Diagnostics obligatoires',
+      resume: `${diagRealises} réalisé(s) sur ${DIAGNOSTIC_TYPES.length}`,
+      statut: diagRealises === DIAGNOSTIC_TYPES.length ? 'ok' : 'attention',
+      statutLabel: `${diagRealises}/${DIAGNOSTIC_TYPES.length}`,
+      maj: null,
+    },
+    {
+      id: 'acheteurs', nom: 'Qualification des acheteurs',
+      resume: acheteursActifs > 0 ? `${acheteursActifs} contact(s) actif(s)` : 'Aucun contact pour le moment',
+      statut: acheteursActifs > 0 ? 'ok' : 'attention',
+      statutLabel: `${acheteurs.length} au total`,
+      maj: acheteurs[0]?.created_at,
+    },
+    {
+      id: 'documents', nom: 'Documents juridiques',
+      resume: `${docsDisponibles} disponible(s) sur ${DOCUMENT_TYPES.length}`,
+      statut: docsDisponibles === DOCUMENT_TYPES.length ? 'ok' : 'attention',
+      statutLabel: `${docsDisponibles}/${DOCUMENT_TYPES.length}`,
+      maj: null,
+    },
+  ];
+
+  document.getElementById('services-grid').innerHTML = cards.map(c => `
+    <div class="service-card">
+      <h3>${c.nom}</h3>
+      <p class="resume">${c.resume}</p>
+      <span class="statut-pill ${c.statut}">${c.statutLabel}</span>
+      <span class="maj-date">${c.maj ? 'Mis à jour le ' + new Date(c.maj).toLocaleDateString('fr-FR') : ''}</span>
+      <button class="btn-detail" onclick="openDetail('${c.id}')">Voir le détail</button>
+    </div>
+  `).join('');
+}
+
+function statutAnnonceLabel(s){
+  return { brouillon: 'Brouillon', a_completer: 'À compléter', prete_a_publier: 'Prête à publier', publiee: 'Publiée', vendue: 'Vendue' }[s] || s;
+}
+
+// ---------- Vue d'ensemble : 8 étapes ----------
+function renderStepper(estimations, diagnostics){
+  const diagOk = diagnostics.length > 0 && diagnostics.every(d => ['realise', 'non_concerne'].includes(d.statut));
+  const steps = [
+    { label: 'Estimation', done: estimations.length > 0 },
+    { label: 'Préparation annonce', done: ['prete_a_publier', 'publiee', 'vendue'].includes(currentAnnonce.statut) },
+    { label: 'Diagnostics', done: diagOk },
+    { label: 'Diffusion & contacts', done: ['publiee', 'vendue'].includes(currentAnnonce.statut) },
+    { label: 'Visites', done: false },
+    { label: "Offre d'achat", done: false },
+    { label: 'Compromis', done: false },
+    { label: 'Signature', done: currentAnnonce.statut === 'vendue' },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  document.getElementById('progress-pct').textContent = pct + ' %';
+  document.getElementById('progress-bar-fill').style.width = pct + '%';
+
+  document.getElementById('stepper').innerHTML = steps.map((s, i) => `
+    <div class="stepper-step ${s.done ? 'done' : ''}">
+      <div class="num">${i + 1}</div>
+      <div class="label">${s.label}</div>
+    </div>
+  `).join('');
+}
+
+// ---------- Action recommandée ----------
+function renderNextAction(estimations, diagnostics){
+  let next = { title: 'Réaliser une estimation du prix', target: 'estimation' };
+  if (estimations.length > 0) next = { title: "Compléter l'annonce", target: 'annonce' };
+  if (['prete_a_publier', 'publiee'].includes(currentAnnonce.statut)) next = { title: 'Réaliser les diagnostics restants', target: 'diagnostics' };
+  if (diagnostics.length > 0 && diagnostics.every(d => ['realise', 'non_concerne'].includes(d.statut))) {
+    next = { title: 'Suivre les acheteurs intéressés', target: 'acheteurs' };
+  }
+
+  document.getElementById('action-title').textContent = next.title;
+  document.getElementById('action-btn').onclick = () => openDetail(next.target);
+}
+
+// ---------- Notifications (dérivées de l'état actuel, non persistées) ----------
+function renderNotifications(diagnostics, acheteurs){
+  const items = [];
+  if (currentAnnonce.statut === 'prete_a_publier') items.push("Votre annonce est prête à être publiée.");
+  const diagDisponibles = diagnostics.filter(d => d.statut === 'realise').length;
+  if (diagDisponibles > 0) items.push(`${diagDisponibles} diagnostic(s) disponible(s).`);
+  const visitesPlanifiees = acheteurs.filter(a => a.statut === 'visite_planifiee').length;
+  if (visitesPlanifiees > 0) items.push(`${visitesPlanifiees} demande(s) de visite à confirmer.`);
+
+  const countEl = document.getElementById('notif-count');
+  if (items.length > 0) { countEl.style.display = 'flex'; countEl.textContent = items.length; }
+  else { countEl.style.display = 'none'; }
+
+  document.getElementById('notif-panel').innerHTML = items.length > 0
+    ? items.map(i => `<div class="notif-item">${i}</div>`).join('')
+    : `<div class="notif-empty">Aucune notification pour le moment.</div>`;
+}
+
+// ---------- Détail : Estimations ----------
+function renderEstimations(rows){
+  const tbody = document.querySelector('#table-estimations tbody');
+  if (rows.length === 0) { tbody.innerHTML = `<tr><td class="empty-msg">Aucune estimation enregistrée pour l'instant.</td></tr>`; return; }
+  tbody.innerHTML = `<tr><th>Date</th><th>Estimation</th><th>Fourchette</th><th>Fiabilité</th></tr>` +
+    rows.map(r => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+        <td>${r.prix_estime ? Math.round(r.prix_estime).toLocaleString('fr-FR') + ' €' : '—'}</td>
+        <td>${r.prix_bas && r.prix_haut ? Math.round(r.prix_bas).toLocaleString('fr-FR') + ' – ' + Math.round(r.prix_haut).toLocaleString('fr-FR') + ' €' : '—'}</td>
+        <td>${r.fiabilite || '—'}</td>
+      </tr>
+    `).join('');
+}
+
+// ---------- Détail : Annonce ----------
+function renderAnnonceForm(){
+  document.getElementById('an-titre').value = currentAnnonce.titre || '';
+  document.getElementById('an-description').value = currentAnnonce.description || '';
+  document.getElementById('an-photos').value = (currentAnnonce.photos_urls || []).join('\n');
+  document.getElementById('an-statut').value = currentAnnonce.statut || 'brouillon';
+}
+document.getElementById('annonce-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const photos = document.getElementById('an-photos').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+  const { data, error } = await supabaseClient.from('annonces').update({
+    titre: document.getElementById('an-titre').value.trim(),
+    description: document.getElementById('an-description').value.trim(),
+    photos_urls: photos,
+    statut: document.getElementById('an-statut').value,
+  }).eq('id', currentAnnonce.id).select().single();
+
+  if (!error) { currentAnnonce = data; await loadAll(); }
+});
+
+// ---------- Détail : Diagnostics ----------
+function renderDiagnostics(rows){
+  const byType = Object.fromEntries(rows.map(r => [r.type, r]));
+  const tbody = document.querySelector('#table-diagnostics tbody');
+  tbody.innerHTML = `<tr><th>Diagnostic</th><th>Statut</th><th>Date de réalisation</th></tr>` +
+    DIAGNOSTIC_TYPES.map(dt => {
+      const existing = byType[dt.type];
+      return `
+        <tr>
+          <td>${dt.label}</td>
+          <td>
+            <select class="statut-select" data-type="${dt.type}" onchange="updateDiagnostic('${dt.type}', this.value)">
+              ${['a_faire', 'planifie', 'realise', 'non_concerne'].map(s =>
+                `<option value="${s}" ${existing?.statut === s ? 'selected' : ''}>${diagStatutLabel(s)}</option>`
+              ).join('')}
+            </select>
+          </td>
+          <td>${existing?.date_realisation ? new Date(existing.date_realisation).toLocaleDateString('fr-FR') : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+}
+function diagStatutLabel(s){
+  return { a_faire: 'À faire', planifie: 'Planifié', realise: 'Réalisé', non_concerne: 'Non concerné' }[s];
+}
+async function updateDiagnostic(type, statut){
+  const payload = { annonce_id: currentAnnonce.id, type, statut };
+  if (statut === 'realise') payload.date_realisation = new Date().toISOString().slice(0, 10);
+  await supabaseClient.from('diagnostics').upsert(payload, { onConflict: 'annonce_id,type' });
+  await loadAll();
+}
+
+// ---------- Détail : Acheteurs ----------
+function renderAcheteurs(rows){
+  const tbody = document.querySelector('#table-acheteurs tbody');
+  if (rows.length === 0) { tbody.innerHTML = `<tr><td class="empty-msg">Aucun acheteur enregistré pour l'instant.</td></tr>`; return; }
+  tbody.innerHTML = `<tr><th>Nom</th><th>Contact</th><th>Statut</th></tr>` +
+    rows.map(a => `
+      <tr>
+        <td>${a.nom}</td>
+        <td>${a.email}${a.telephone ? ' · ' + a.telephone : ''}</td>
+        <td>
+          <select class="statut-select" onchange="updateAcheteur('${a.id}', this.value)">
+            ${['nouveau','contacte','qualifie','visite_planifiee','visite_realisee','offre_recue','negociation','accepte','perdu'].map(s =>
+              `<option value="${s}" ${a.statut === s ? 'selected' : ''}>${acheteurStatutLabel(s)}</option>`
+            ).join('')}
+          </select>
+        </td>
+      </tr>
+    `).join('');
+}
+function acheteurStatutLabel(s){
+  return {
+    nouveau: 'Nouveau', contacte: 'Contacté', qualifie: 'Qualifié', visite_planifiee: 'Visite planifiée',
+    visite_realisee: 'Visite réalisée', offre_recue: 'Offre reçue', negociation: 'Négociation',
+    accepte: 'Accepté', perdu: 'Perdu',
+  }[s];
+}
+async function updateAcheteur(id, statut){
+  await supabaseClient.from('acheteurs').update({ statut }).eq('id', id);
+  await loadAll();
+}
+document.getElementById('acheteur-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await supabaseClient.from('acheteurs').insert([{
+    annonce_id: currentAnnonce.id,
+    nom: document.getElementById('ac-nom').value.trim(),
+    email: document.getElementById('ac-email').value.trim(),
+    telephone: document.getElementById('ac-tel').value.trim() || null,
+  }]);
+  e.target.reset();
+  await loadAll();
+});
+
+// ---------- Détail : Documents ----------
+function renderDocuments(rows){
+  const byType = Object.fromEntries(rows.map(r => [r.type, r]));
+  const tbody = document.querySelector('#table-documents tbody');
+  tbody.innerHTML = `<tr><th>Document</th><th>Statut</th></tr>` +
+    DOCUMENT_TYPES.map(dt => {
+      const existing = byType[dt.type];
+      return `
+        <tr>
+          <td>${dt.label}</td>
+          <td>
+            <select class="statut-select" onchange="updateDocument('${dt.type}', this.value)">
+              ${['manquant', 'en_attente', 'disponible'].map(s =>
+                `<option value="${s}" ${existing?.statut === s ? 'selected' : ''}>${docStatutLabel(s)}</option>`
+              ).join('')}
+            </select>
+          </td>
+        </tr>
+      `;
+    }).join('');
+}
+function docStatutLabel(s){
+  return { manquant: 'Manquant', en_attente: 'En attente', disponible: 'Disponible' }[s];
+}
+async function updateDocument(type, statut){
+  await supabaseClient.from('documents').upsert(
+    { annonce_id: currentAnnonce.id, type, statut },
+    { onConflict: 'annonce_id,type' }
+  );
+  await loadAll();
+}
+</script>
+</body>
+</html>
