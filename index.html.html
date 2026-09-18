@@ -503,7 +503,7 @@
 
     <div id="signup-form-view">
       <h2 id="signup-title">Créer un compte</h2>
-      <p class="modal-sub">Gratuit, en moins d'une minute.</p>
+      <p class="modal-sub">Gratuit, en moins d'une minute. Déjà un compte ? <a href="dashboard.html" style="color:var(--ink);">Se connecter</a>.</p>
 
       <form id="signup-form" novalidate>
         <div class="form-row">
@@ -1196,12 +1196,28 @@
     if (e.key === 'Escape') closeSignup();
   }
 
-  btnOpenSignup.addEventListener('click', openSignup);
+  let isLoggedIn = false;
+  function applyAuthState(){
+    if (!isLoggedIn) return;
+    btnOpenSignup.textContent = 'Mon tableau de bord';
+    btnBottomSignup.textContent = 'Accéder à mon tableau de bord';
+  }
+  if (supabaseClient) {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) { isLoggedIn = true; applyAuthState(); }
+    });
+  }
+
+  btnOpenSignup.addEventListener('click', () => {
+    if (isLoggedIn) { window.location.href = 'dashboard.html'; return; }
+    openSignup();
+  });
   btnCloseSignup.addEventListener('click', closeSignup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSignup(); });
 
-  // ---------- Bouton CTA bas de page : scroll + focus + pulse ----------
+  // ---------- Bouton CTA bas de page : scroll + focus + pulse (ou accès direct si déjà connecté) ----------
   btnBottomSignup.addEventListener('click', () => {
+    if (isLoggedIn) { window.location.href = 'dashboard.html'; return; }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
       btnOpenSignup.focus({ preventScroll: true });
