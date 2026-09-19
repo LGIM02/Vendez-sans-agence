@@ -180,6 +180,31 @@
 
   .loading-msg, .empty-msg{ font-size:0.88rem; color:var(--ink-soft); padding:16px 0; }
 
+  /* ---------- GRILLE DE PHOTOS (façon LeBonCoin) ---------- */
+  .photo-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:12px; margin-top:8px; }
+  .photo-tile{
+    position:relative; aspect-ratio:1/1; border:1px dashed var(--line); border-radius:4px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    cursor:pointer; background:var(--paper); overflow:hidden; text-align:center;
+  }
+  .photo-tile.add-tile{ color:var(--ink-soft); font-size:0.78rem; }
+  .photo-tile.add-tile:hover{ border-color:var(--ink); color:var(--ink); }
+  .photo-tile.filled{ border-style:solid; border-color:var(--line); }
+  .photo-tile img{ width:100%; height:100%; object-fit:cover; }
+  .photo-cover-badge{
+    position:absolute; top:6px; left:6px; background:var(--ink); color:var(--white);
+    font-size:0.65rem; padding:3px 8px; border-radius:2px; z-index:2;
+  }
+  .photo-remove{
+    position:absolute; top:6px; right:6px; background:rgba(28,43,58,0.75); color:var(--white);
+    border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:0.75rem; z-index:2;
+  }
+  .photo-set-cover{
+    position:absolute; bottom:0; left:0; right:0; background:rgba(28,43,58,0.75); color:var(--white);
+    border:none; font-size:0.68rem; padding:5px 4px; cursor:pointer; opacity:0; transition:opacity .15s; z-index:2;
+  }
+  .photo-tile:hover .photo-set-cover{ opacity:1; }
+
   @media (max-width:760px){
     .header-adresse{ display:none; }
     .services-grid{ grid-template-columns:1fr; }
@@ -305,6 +330,25 @@
       <section id="detail-annonce" class="detail-panel">
         <button class="detail-close" data-close>✕</button>
         <h3>Annonce prête à publier</h3>
+
+        <div class="field">
+          <label>Vos photos</label>
+          <div class="photo-grid" id="photo-grid"></div>
+          <input type="file" id="photo-input" accept="image/*" multiple style="display:none;">
+          <div class="status-msg" id="photo-status"></div>
+        </div>
+
+        <div class="field" style="background:var(--paper); border:1px solid var(--line); padding:16px; margin-top:22px;">
+          <label for="an-resume">Décrivez sommairement votre bien</label>
+          <textarea id="an-resume" rows="2" placeholder="ex. maison des années 60 rénovée, quartier calme proche des écoles, beaucoup de lumière le matin"></textarea>
+          <button type="button" class="btn-ghost" id="btn-generate-desc" style="margin-top:10px;">✨ Générer une description avec l'IA</button>
+          <div class="status-msg" id="ai-status"></div>
+          <div id="ai-proposal" style="display:none; margin-top:12px; background:var(--white); border:1px solid var(--line); padding:14px;">
+            <p style="font-size:0.88rem; margin-bottom:10px;" id="ai-proposal-text"></p>
+            <button type="button" class="btn-ghost" id="btn-use-desc">Utiliser cette description</button>
+          </div>
+        </div>
+
         <form id="annonce-form">
           <div class="field">
             <label for="an-titre">Titre de l'annonce</label>
@@ -313,10 +357,6 @@
           <div class="field">
             <label for="an-description">Description</label>
             <textarea id="an-description" rows="4" placeholder="Décrivez le bien…"></textarea>
-          </div>
-          <div class="field">
-            <label for="an-photos">Photos (une URL par ligne)</label>
-            <textarea id="an-photos" rows="3" placeholder="https://…"></textarea>
           </div>
           <div class="field">
             <label for="an-statut">Statut</label>
@@ -673,17 +713,131 @@ function renderEstimations(rows){
 function renderAnnonceForm(){
   document.getElementById('an-titre').value = currentAnnonce.titre || '';
   document.getElementById('an-description').value = currentAnnonce.description || '';
-  document.getElementById('an-photos').value = (currentAnnonce.photos_urls || []).join('\n');
   document.getElementById('an-statut').value = currentAnnonce.statut || 'brouillon';
+  renderPhotoGrid();
 }
+
+// ---------- Grille de photos (façon LeBonCoin) ----------
+function renderPhotoGrid(){
+  const photos = currentAnnonce.photos_urls || [];
+  const grid = document.getElementById('photo-grid');
+
+  const addTile = `
+    <div class="photo-tile add-tile" id="add-photo-tile">
+      <span style="font-size:1.4rem;">📷+</span>
+      <span>Ajouter des<br>photos</span>
+    </div>`;
+
+  const photoTiles = photos.map((url, i) => `
+    <div class="photo-tile filled">
+      ${i === 0 ? '<span class="photo-cover-badge">Photo de couverture</span>' : ''}
+      <img src="${url}" alt="Photo ${i + 1}" loading="lazy">
+      <button type="button" class="photo-remove" onclick="removePhoto(${i})" aria-label="Supprimer">✕</button>
+      ${i !== 0 ? `<button type="button" class="photo-set-cover" onclick="setCoverPhoto(${i})">Définir comme couverture</button>` : ''}
+    </div>
+  `).join('');
+
+  grid.innerHTML = addTile + photoTiles;
+  document.getElementById('add-photo-tile').addEventListener('click', () => document.getElementById('photo-input').click());
+}
+
+document.getElementById('photo-input').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  if (files.length === 0) return;
+  const statusEl = document.getElementById('photo-status');
+  statusEl.textContent = `Envoi de ${files.length} photo(s)…`;
+
+  const currentPhotos = [...(currentAnnonce.photos_urls || [])];
+
+  for (const file of files) {
+    const path = `${currentUser.id}/${currentAnnonce.id}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabaseClient.storage.from('annonce-photos').upload(path, file);
+    if (uploadError) { statusEl.textContent = "Erreur lors de l'envoi d'une photo — réessayez."; continue; }
+    const { data: publicUrlData } = supabaseClient.storage.from('annonce-photos').getPublicUrl(path);
+    currentPhotos.push(publicUrlData.publicUrl);
+  }
+
+  const { data, error } = await supabaseClient.from('annonces')
+    .update({ photos_urls: currentPhotos }).eq('id', currentAnnonce.id).select().single();
+
+  if (!error) { currentAnnonce = data; renderPhotoGrid(); statusEl.textContent = ''; }
+  else { statusEl.textContent = "Erreur lors de l'enregistrement des photos."; }
+
+  e.target.value = ''; // permet de re-sélectionner le même fichier plus tard si besoin
+});
+
+async function removePhoto(index){
+  const photos = [...(currentAnnonce.photos_urls || [])];
+  photos.splice(index, 1);
+  const { data, error } = await supabaseClient.from('annonces')
+    .update({ photos_urls: photos }).eq('id', currentAnnonce.id).select().single();
+  if (!error) { currentAnnonce = data; renderPhotoGrid(); }
+}
+
+async function setCoverPhoto(index){
+  const photos = [...(currentAnnonce.photos_urls || [])];
+  const [chosen] = photos.splice(index, 1);
+  photos.unshift(chosen);
+  const { data, error } = await supabaseClient.from('annonces')
+    .update({ photos_urls: photos }).eq('id', currentAnnonce.id).select().single();
+  if (!error) { currentAnnonce = data; renderPhotoGrid(); }
+}
+
+// ---------- Assistant de description par IA ----------
+document.getElementById('btn-generate-desc').addEventListener('click', async () => {
+  const resume = document.getElementById('an-resume').value.trim();
+  const aiStatus = document.getElementById('ai-status');
+  const proposalBox = document.getElementById('ai-proposal');
+  proposalBox.style.display = 'none';
+
+  if (resume.length < 10) {
+    aiStatus.textContent = 'Décrivez le bien en quelques mots avant de générer une description.';
+    return;
+  }
+
+  aiStatus.textContent = 'Génération en cours…';
+  const btn = document.getElementById('btn-generate-desc');
+  btn.disabled = true;
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch('/api/generate-description', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        resume,
+        bien: {
+          ville: currentAnnonce.ville,
+          surface: currentAnnonce.surface,
+        },
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      aiStatus.textContent = data.error || 'Une erreur est survenue.';
+    } else {
+      aiStatus.textContent = '';
+      document.getElementById('ai-proposal-text').textContent = data.description;
+      proposalBox.style.display = 'block';
+    }
+  } catch (err) {
+    aiStatus.textContent = "Impossible de joindre le service de génération.";
+  }
+
+  btn.disabled = false;
+});
+
+document.getElementById('btn-use-desc').addEventListener('click', () => {
+  document.getElementById('an-description').value = document.getElementById('ai-proposal-text').textContent;
+  document.getElementById('ai-proposal').style.display = 'none';
+});
+
 document.getElementById('annonce-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const photos = document.getElementById('an-photos').value.split('\n').map(s => s.trim()).filter(Boolean);
-
   const { data, error } = await supabaseClient.from('annonces').update({
     titre: document.getElementById('an-titre').value.trim(),
     description: document.getElementById('an-description').value.trim(),
-    photos_urls: photos,
     statut: document.getElementById('an-statut').value,
   }).eq('id', currentAnnonce.id).select().single();
 
