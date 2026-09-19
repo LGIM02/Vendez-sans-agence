@@ -85,7 +85,8 @@ module.exports = async (req, res) => {
     });
 
     if (!aiRes.ok) {
-      res.status(502).json({ error: "Le service IA n'a pas pu générer de description." });
+      const errText = await aiRes.text();
+      res.status(502).json({ error: `Erreur Groq (${aiRes.status}) : ${errText.slice(0, 300)}` });
       return;
     }
 
