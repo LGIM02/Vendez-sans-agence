@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estimation détaillée — Clef</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --ink:#1C2B3A; --ink-soft:#54636F; --paper:#F3EFE3; --paper-deep:#EAE4D3;
+    --line:#CFC6AD; --brick:#A8472E; --brick-deep:#8B3A25; --verdigris:#5B7A6C; --white:#FCFBF7;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans', sans-serif; font-size:16px; line-height:1.55; }
+  h1,h2,h3{ font-family:'Fraunces', serif; font-weight:500; margin:0; }
+  .wrap{ max-width:820px; margin:0 auto; padding:0 24px; }
+  button, input, select, textarea{ font-family:inherit; }
+
+  header{ background:var(--white); border-bottom:1px solid var(--line); }
+  header .wrap{ display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo{ font-family:'Fraunces', serif; font-size:1.2rem; font-weight:600; }
+  header a{ font-size:0.88rem; color:var(--ink-soft); text-decoration:none; }
+  header a:hover{ color:var(--ink); }
+
+  main{ padding:40px 0 80px; }
+  h1.page-title{ font-size:1.7rem; margin-bottom:6px; }
+  .page-sub{ font-size:0.92rem; color:var(--ink-soft); margin-bottom:32px; }
+
+  .card{ background:var(--white); border:1px solid var(--line); padding:28px; margin-bottom:24px; }
+  .card h2{ font-size:1.1rem; margin-bottom:6px; }
+  .card .card-note{ font-size:0.8rem; color:var(--ink-soft); margin-bottom:20px; }
+  .card.informational{ border-color:var(--line); background:#F9F7F1; }
+  .card.informational h2::after{ content:" — informatif"; font-size:0.7rem; color:var(--ink-soft); font-family:'IBM Plex Sans',sans-serif; font-weight:400; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  .field{ margin-bottom:16px; position:relative; }
+  .field label{ display:block; font-size:0.82rem; color:var(--ink-soft); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:2px;
+    background:var(--paper); font-size:0.95rem; color:var(--ink);
+  }
+  .suggestion-item{ padding:10px 12px; font-size:0.9rem; cursor:pointer; border-bottom:1px solid var(--paper-deep); }
+  .suggestion-item:hover{ background:var(--paper-deep); }
+  #adresse-suggestions{
+    display:none; position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--white);
+    border:1px solid var(--line); border-top:none; max-height:200px; overflow-y:auto;
+  }
+
+  .radio-group{ display:flex; gap:8px; flex-wrap:wrap; }
+  .radio-pill{
+    border:1px solid var(--line); padding:8px 14px; border-radius:20px; font-size:0.85rem; cursor:pointer;
+    background:var(--paper); color:var(--ink-soft); transition:all .15s;
+  }
+  .radio-pill.active{ background:var(--ink); color:var(--white); border-color:var(--ink); }
+
+  .status-msg{ font-size:0.8rem; color:var(--ink-soft); margin-top:6px; min-height:1em; }
+
+  .result-box{ background:var(--ink); color:var(--white); padding:28px; text-align:center; }
+  .result-box .tag{ font-size:0.85rem; color:#C7CDD3; }
+  .result-price{ font-family:'IBM Plex Mono', monospace; font-size:2.4rem; font-weight:600; margin:8px 0; }
+  .result-range{ font-size:0.88rem; color:#C7CDD3; }
+
+  .btn-primary{
+    background:var(--brick); color:var(--white); border:none; padding:14px 26px; font-size:0.98rem;
+    border-radius:2px; cursor:pointer;
+  }
+  .btn-primary:hover{ background:var(--brick-deep); }
+  .btn-primary:disabled{ background:#7c7368; cursor:not-allowed; }
+  .actions{ display:flex; justify-content:center; gap:14px; margin-top:24px; }
+
+  @media (max-width:640px){
+    .grid2, .grid3{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">Clef</div>
+    <a href="dashboard.html">← Retour au tableau de bord</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="page-title">Estimation détaillée du prix</h1>
+  <p class="page-sub">Plus vous renseignez de détails, plus l'estimation — et la future annonce — seront précises.</p>
+
+  <div class="card">
+    <h2>Localisation et surfaces</h2>
+    <p class="card-note">Ces champs alimentent directement le calcul.</p>
+    <div class="field">
+      <label for="adresse">Adresse précise</label>
+      <input type="text" id="adresse" placeholder="ex. 12 rue de la Paix, Marseille" autocomplete="off">
+      <div id="adresse-suggestions"></div>
+    </div>
+    <div class="field">
+      <label for="ville">Ville ou code postal</label>
+      <input type="text" id="ville" placeholder="ex. Rennes ou 35000">
+      <div class="status-msg" id="ville-status"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label for="surface">Surface habitable (m²)</label><input type="number" id="surface" min="10" value="90"></div>
+      <div class="field"><label for="terrain">Surface du terrain (m²)</label><input type="number" id="terrain" min="0" placeholder="ex. 450"></div>
+      <div class="field"><label for="pieces">Nombre de pièces</label><input type="number" id="pieces" min="1" value="4"></div>
+    </div>
+    <div class="field">
+      <label>Diagnostic de performance énergétique (DPE)</label>
+      <div class="radio-group" id="dpe-group">
+        <div class="radio-pill" data-val="1.24">A</div><div class="radio-pill" data-val="1.16">B</div>
+        <div class="radio-pill" data-val="1.08">C</div><div class="radio-pill active" data-val="1">D</div>
+        <div class="radio-pill" data-val="0.92">E</div><div class="radio-pill" data-val="0.84">F</div>
+        <div class="radio-pill" data-val="0.75">G</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>État général du bien</label>
+      <div class="radio-group" id="etat-group">
+        <div class="radio-pill" data-val="0.85">À rénover</div>
+        <div class="radio-pill active" data-val="1">Correct</div>
+        <div class="radio-pill" data-val="1.12">Refait à neuf</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Équipements</label>
+      <div class="radio-group" id="equip-group">
+        <div class="radio-pill" data-val="jardin">Jardin</div>
+        <div class="radio-pill" data-val="piscine">Piscine</div>
+        <div class="radio-pill" data-val="garage">Garage</div>
+        <div class="radio-pill" data-val="terrasse">Terrasse</div>
+        <div class="radio-pill" data-val="vue">Vue dégagée</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card informational">
+    <h2>Caractéristiques complémentaires</h2>
+    <p class="card-note">Enregistrées pour affiner l'annonce et les futures estimations — n'influencent pas encore le prix calculé.</p>
+    <div class="grid3">
+      <div class="field"><label for="annee">Année de construction</label><input type="number" id="annee" placeholder="ex. 1998"></div>
+      <div class="field"><label for="chambres">Nombre de chambres</label><input type="number" id="chambres" min="0"></div>
+      <div class="field"><label for="sdb">Salles de bain / d'eau</label><input type="number" id="sdb" min="0"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label for="etages">Nombre d'étages</label><input type="number" id="etages" min="0"></div>
+      <div class="field">
+        <label for="chauffage">Type de chauffage</label>
+        <select id="chauffage">
+          <option value="">Non renseigné</option>
+          <option value="gaz_individuel">Gaz individuel</option>
+          <option value="electrique">Électrique</option>
+          <option value="pompe_chaleur">Pompe à chaleur</option>
+          <option value="collectif">Collectif</option>
+          <option value="bois_granules">Bois / granulés</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="exposition">Exposition</label>
+        <select id="exposition">
+          <option value="">Non renseignée</option>
+          <option value="sud">Sud</option>
+          <option value="sud_ouest">Sud-Ouest</option>
+          <option value="sud_est">Sud-Est</option>
+          <option value="ouest">Ouest</option>
+          <option value="est">Est</option>
+          <option value="nord">Nord</option>
+          <option value="traversant">Traversant</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="toiture">État de la toiture</label>
+      <select id="toiture">
+        <option value="">Non renseigné</option>
+        <option value="bon">Bon état</option>
+        <option value="moyen">État moyen</option>
+        <option value="a_refaire">À refaire</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Autres éléments</label>
+      <div class="radio-group" id="autres-group">
+        <div class="radio-pill" data-val="cave">Cave / sous-sol</div>
+        <div class="radio-pill" data-val="dependance">Dépendance (abri, atelier)</div>
+        <div class="radio-pill" data-val="nuisance">Nuisance sonore à proximité</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-box">
+    <div class="tag">Estimation de prix de vente réel</div>
+    <div class="result-price" id="prix-central">—</div>
+    <div class="result-range" id="prix-range"></div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn-primary" id="btn-save" disabled>Enregistrer cette estimation</button>
+  </div>
+  <p class="status-msg" id="save-status" style="text-align:center; margin-top:12px;"></p>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://pcgtofxvboanybiffeaa.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjZ3RvZnh2Ym9hbnliaWZmZWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTM2NTMsImV4cCI6MjEwNTEyOTY1M30.MCZk_Zb5Qv07p6CIXbcI-AdthYD6TraIxjl2WEFSMj0';
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const PRIX_M2_NATIONAL = 2510;
+  const DISPERSION_NATIONALE = 0.07;
+  let prixM2Courant = PRIX_M2_NATIONAL;
+  let dispersionCourante = DISPERSION_NATIONALE;
+  let dernierResultat = null;
+  let currentUser = null;
+  let currentAnnonce = null;
+  let selectedAdresse = null;
+
+  const villeInput = document.getElementById('ville');
+  const adresseInput = document.getElementById('adresse');
+  const villeStatus = document.getElementById('ville-status');
+  const surfaceInput = document.getElementById('surface');
+  const terrainInput = document.getElementById('terrain');
+  const piecesInput = document.getElementById('pieces');
+  const dpeGroup = document.getElementById('dpe-group');
+  const etatGroup = document.getElementById('etat-group');
+  const equipGroup = document.getElementById('equip-group');
+  const autresGroup = document.getElementById('autres-group');
+  const prixCentral = document.getElementById('prix-central');
+  const prixRange = document.getElementById('prix-range');
+  const btnSave = document.getElementById('btn-save');
+  const saveStatus = document.getElementById('save-status');
+  const adresseSuggestions = document.getElementById('adresse-suggestions');
+
+  let dpeMultiplier = 1, etatMultiplier = 1;
+  const equipMultipliers = { jardin: 1.04, piscine: 1.06, garage: 1.03, terrasse: 1.02, vue: 1.05 };
+  const equipActive = new Set();
+  const autresActive = new Set(); // informatif uniquement
+
+  function setupPillGroup(group, onSelect, exclusive){
+    group.addEventListener('click', (e) => {
+      const pill = e.target.closest('.radio-pill');
+      if (!pill) return;
+      if (exclusive) {
+        [...group.children].forEach(c => c.classList.remove('active'));
+        pill.classList.add('active');
+      } else {
+        pill.classList.toggle('active');
+      }
+      onSelect(pill);
+      compute();
+    });
+  }
+  setupPillGroup(dpeGroup, (pill) => { dpeMultiplier = parseFloat(pill.dataset.val); }, true);
+  setupPillGroup(etatGroup, (pill) => { etatMultiplier = parseFloat(pill.dataset.val); }, true);
+  setupPillGroup(equipGroup, (pill) => {
+    const v = pill.dataset.val;
+    equipActive.has(v) ? equipActive.delete(v) : equipActive.add(v);
+  }, false);
+  setupPillGroup(autresGroup, (pill) => {
+    const v = pill.dataset.val;
+    autresActive.has(v) ? autresActive.delete(v) : autresActive.add(v);
+  }, false);
+
+  // ---------- Terrain : remplace le forfait "jardin" par un ajustement par palier quand renseigné ----------
+  function terrainAdjustment(terrainM2){
+    if (!terrainM2 || terrainM2 <= 0) return null;
+    if (terrainM2 >= 1000) return 1.08;
+    if (terrainM2 >= 500) return 1.05;
+    if (terrainM2 >= 200) return 1.02;
+    return 1;
+  }
+
+  function formatEUR(n){ return Math.round(n).toLocaleString('fr-FR') + ' €'; }
+
+  function compute(){
+    const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
+    const pieces = Math.max(parseFloat(piecesInput.value) || 1, 1);
+    const terrain = parseFloat(terrainInput.value) || 0;
+
+    const piecesRatio = surface / pieces;
+    const compactAdj = piecesRatio < 18 ? 1.03 : piecesRatio > 35 ? 0.98 : 1;
+
+    let equipAdj = 1;
+    const terrainAdj = terrainAdjustment(terrain);
+    equipActive.forEach(v => {
+      if (v === 'jardin' && terrainAdj !== null) return; // le terrain précis remplace le forfait jardin
+      equipAdj *= equipMultipliers[v];
+    });
+    if (terrainAdj !== null) equipAdj *= terrainAdj;
+
+    const central = prixM2Courant * surface * etatMultiplier * compactAdj * equipAdj * dpeMultiplier;
+    const low = central * (1 - dispersionCourante);
+    const high = central * (1 + dispersionCourante);
+
+    prixCentral.textContent = formatEUR(central);
+    prixRange.textContent = `Fourchette : ${formatEUR(low)} – ${formatEUR(high)}`;
+    dernierResultat = { central, low, high };
+    btnSave.disabled = !currentAnnonce;
+  }
+
+  // ---------- Autocomplétion adresse (BAN) ----------
+  let suggestTimer = null;
+  async function fetchSuggestions(query){
+    if (query.length < 4) { adresseSuggestions.style.display = 'none'; return; }
+    try {
+      const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+      const features = data.features || [];
+      if (features.length === 0) { adresseSuggestions.style.display = 'none'; return; }
+      adresseSuggestions.innerHTML = '';
+      features.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = f.properties.label;
+        item.addEventListener('click', () => {
+          adresseInput.value = f.properties.label;
+          selectedAdresse = { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], codeInsee: f.properties.citycode };
+          villeInput.value = f.properties.city;
+          adresseSuggestions.style.display = 'none';
+          lookupVille();
+        });
+        adresseSuggestions.appendChild(item);
+      });
+      adresseSuggestions.style.display = 'block';
+    } catch (err) { adresseSuggestions.style.display = 'none'; }
+  }
+  adresseInput.addEventListener('input', () => {
+    selectedAdresse = null;
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(() => fetchSuggestions(adresseInput.value.trim()), 300);
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#adresse-suggestions') && e.target !== adresseInput) adresseSuggestions.style.display = 'none';
+  });
+
+  let villeLookupTimer = null;
+  async function lookupVille(){
+    const ville = villeInput.value.trim();
+    const adresse = adresseInput.value.trim();
+    if (!ville && !adresse) return;
+    const surface = Math.max(parseFloat(surfaceInput.value) || 0, 10);
+    villeStatus.textContent = 'Recherche des ventes réelles…';
+
+    try {
+      const params = new URLSearchParams({ surface: String(surface), type: 'Maison' });
+      if (ville) params.set('ville', ville);
+      if (selectedAdresse) {
+        params.set('lat', String(selectedAdresse.lat));
+        params.set('lon', String(selectedAdresse.lon));
+        params.set('code_insee', selectedAdresse.codeInsee);
+      } else if (adresse) {
+        params.set('adresse', adresse);
+      }
+      const res = await fetch(`/api/estimate?${params.toString()}`);
+      const data = await res.json();
+      prixM2Courant = data.prix_m2 || PRIX_M2_NATIONAL;
+      dispersionCourante = typeof data.dispersion === 'number' ? data.dispersion : DISPERSION_NATIONALE;
+      if (adresse && data.commune && data.commune !== villeInput.value.trim()) villeInput.value = data.commune;
+      villeStatus.textContent = data.source === 'dvf'
+        ? `${data.nb_transactions} vente(s) comparable(s) (fiabilité ${data.fiabilite}).`
+        : (data.message || 'Moyenne nationale utilisée.');
+    } catch (err) {
+      prixM2Courant = PRIX_M2_NATIONAL;
+      dispersionCourante = DISPERSION_NATIONALE;
+      villeStatus.textContent = "API d'estimation indisponible — moyenne nationale utilisée.";
+    }
+    compute();
+  }
+  [villeInput, adresseInput, surfaceInput, terrainInput, piecesInput].forEach(el => {
+    el.addEventListener('input', () => {
+      clearTimeout(villeLookupTimer);
+      villeLookupTimer = setTimeout(lookupVille, 600);
+    });
+  });
+
+  // ---------- Auth + chargement du projet actif ----------
+  (async function init(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'dashboard.html'; return; }
+    currentUser = session.user;
+
+    const { data: annonces } = await supabaseClient
+      .from('annonces').select('*').eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false }).limit(1);
+
+    if (annonces && annonces.length > 0) {
+      currentAnnonce = annonces[0];
+      if (currentAnnonce.ville) villeInput.value = currentAnnonce.ville;
+      if (currentAnnonce.surface) surfaceInput.value = currentAnnonce.surface;
+    }
+    compute();
+    if (villeInput.value) lookupVille();
+  })();
+
+  // ---------- Enregistrement dans l'historique ----------
+  btnSave.addEventListener('click', async () => {
+    if (!currentAnnonce || !dernierResultat) return;
+    btnSave.disabled = true;
+    btnSave.textContent = 'Enregistrement…';
+
+    const parametres = {
+      surface: parseFloat(surfaceInput.value) || null,
+      terrain: parseFloat(terrainInput.value) || null,
+      pieces: parseFloat(piecesInput.value) || null,
+      annee_construction: document.getElementById('annee').value || null,
+      chambres: document.getElementById('chambres').value || null,
+      salles_de_bain: document.getElementById('sdb').value || null,
+      etages: document.getElementById('etages').value || null,
+      chauffage: document.getElementById('chauffage').value || null,
+      exposition: document.getElementById('exposition').value || null,
+      etat_toiture: document.getElementById('toiture').value || null,
+      equipements: [...equipActive],
+      autres: [...autresActive],
+      dpe: dpeGroup.querySelector('.active')?.textContent || null,
+      etat_general: etatGroup.querySelector('.active')?.textContent || null,
+    };
+
+    const { error } = await supabaseClient.from('estimations').insert([{
+      annonce_id: currentAnnonce.id,
+      prix_m2: prixM2Courant,
+      prix_estime: dernierResultat.central,
+      prix_bas: dernierResultat.low,
+      prix_haut: dernierResultat.high,
+      dispersion: dispersionCourante,
+      parametres,
+    }]);
+
+    btnSave.textContent = 'Enregistrer cette estimation';
+    btnSave.disabled = false;
+
+    if (error) {
+      saveStatus.textContent = "Une erreur est survenue, réessayez.";
+    } else {
+      saveStatus.textContent = 'Estimation enregistrée — redirection vers le tableau de bord…';
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+    }
+  });
+</script>
+</body>
+</html>
