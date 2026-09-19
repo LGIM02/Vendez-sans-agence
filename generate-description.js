@@ -7,9 +7,9 @@
 // le vendeur + des caractéristiques déjà connues du bien. Le texte proposé
 // reste éditable côté front — rien n'est publié automatiquement.
 //
-// Nécessite la variable d'environnement ANTHROPIC_API_KEY sur Vercel
-// (clé personnelle à créer sur console.anthropic.com — usage payant,
-// pense à fixer un plafond de dépense sur ton compte).
+// Utilise Groq (https://console.groq.com), qui héberge des modèles open-source
+// (Llama 3.3, Mixtral, Gemma) avec une clé API gratuite — adapté à un POC sans
+// budget. Nécessite la variable d'environnement GROQ_API_KEY sur Vercel.
 
 async function verifySupabaseUser(token) {
   const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
@@ -60,8 +60,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      res.status(500).json({ error: "Clé API IA manquante côté serveur (ANTHROPIC_API_KEY)." });
+    if (!process.env.GROQ_API_KEY) {
+      res.status(500).json({ error: "Clé API IA manquante côté serveur (GROQ_API_KEY)." });
       return;
     }
 
@@ -71,15 +71,14 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'llama-3.3-70b-versatile',
         max_tokens: 400,
         messages: [{ role: 'user', content: buildPrompt(resume.trim(), bien || {}) }],
       }),
@@ -91,7 +90,7 @@ module.exports = async (req, res) => {
     }
 
     const aiData = await aiRes.json();
-    const texte = (aiData.content || []).map(b => b.text || '').join('\n').trim();
+    const texte = (aiData.choices?.[0]?.message?.content || '').trim();
 
     res.status(200).json({ description: texte });
   } catch (err) {
