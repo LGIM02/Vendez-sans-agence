@@ -79,7 +79,7 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         model: 'openai/gpt-oss-120b',
-        max_tokens: 400,
+        max_tokens: 800,
         messages: [{ role: 'user', content: buildPrompt(resume.trim(), bien || {}) }],
       }),
     });
