@@ -381,6 +381,25 @@
         <button class="detail-close" data-close>✕</button>
         <h3>Diagnostics obligatoires</h3>
         <table class="data-table" id="table-diagnostics"><tbody></tbody></table>
+        <p class="status-msg" id="diag-eligibilite-note"></p>
+
+        <div class="field" style="background:var(--paper); border:1px solid var(--line); padding:16px; margin-top:10px;">
+          <label>Importer un dossier de diagnostic (PDF)</label>
+          <p style="font-size:0.8rem; color:var(--ink-soft); margin-bottom:10px;">Si un diagnostiqueur vous a déjà remis un dossier technique complet, importez-le en une fois plutôt que de cocher chaque ligne à la main.</p>
+          <button type="button" class="btn-ghost" id="btn-import-diag">📄 Importer un PDF</button>
+          <input type="file" id="diag-file-input" accept="application/pdf" style="display:none;">
+          <div class="status-msg" id="diag-import-status"></div>
+
+          <div id="diag-import-checklist" style="display:none; margin-top:14px;">
+            <p style="font-size:0.85rem; margin-bottom:8px;">Quels diagnostics ce dossier couvre-t-il ?</p>
+            <div id="diag-checklist-items" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:6px; margin-bottom:12px;"></div>
+            <div class="field" style="max-width:200px;">
+              <label for="diag-import-date">Date du rapport</label>
+              <input type="date" id="diag-import-date">
+            </div>
+            <button type="button" class="btn-primary" style="width:auto;" id="btn-confirm-import">Confirmer</button>
+          </div>
+        </div>
 
         <div class="field" style="background:var(--paper); border:1px solid var(--line); padding:16px; margin-top:10px;">
           <label>Trouver un diagnostiqueur près de chez vous</label>
@@ -571,22 +590,71 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
 
 // ---------- Chargement de toutes les données du projet actif ----------
 async function loadAll(){
-  const [estimations, diagnostics, acheteurs, documents] = await Promise.all([
+  const [estimations, diagnosticsRes, acheteurs, documents] = await Promise.all([
     supabaseClient.from('estimations').select('*').eq('annonce_id', currentAnnonce.id).order('created_at', { ascending: false }),
     supabaseClient.from('diagnostics').select('*').eq('annonce_id', currentAnnonce.id),
     supabaseClient.from('acheteurs').select('*').eq('annonce_id', currentAnnonce.id).order('created_at', { ascending: false }),
     supabaseClient.from('documents').select('*').eq('annonce_id', currentAnnonce.id),
   ]);
 
-  renderServiceCards(estimations.data || [], diagnostics.data || [], acheteurs.data || [], documents.data || []);
-  renderStepper(estimations.data || [], diagnostics.data || []);
+  let diagnosticsRows = diagnosticsRes.data || [];
+  const eligibiliteAppliquee = await applyEligibilityRules(estimations.data || [], diagnosticsRows);
+  if (eligibiliteAppliquee) {
+    const refreshed = await supabaseClient.from('diagnostics').select('*').eq('annonce_id', currentAnnonce.id);
+    diagnosticsRows = refreshed.data || [];
+  }
+
+  renderServiceCards(estimations.data || [], diagnosticsRows, acheteurs.data || [], documents.data || []);
+  renderStepper(estimations.data || [], diagnosticsRows);
   renderEstimations(estimations.data || []);
-  renderDiagnostics(diagnostics.data || []);
+  renderDiagnostics(diagnosticsRows);
   renderAcheteurs(acheteurs.data || []);
   renderDocuments(documents.data || []);
   renderAnnonceForm();
-  renderNotifications(diagnostics.data || [], acheteurs.data || []);
-  renderNextAction(estimations.data || [], diagnostics.data || []);
+  renderNotifications(diagnosticsRows, acheteurs.data || []);
+  renderNextAction(estimations.data || [], diagnosticsRows);
+}
+
+// ---------- Éligibilité automatique des diagnostics ----------
+// Basée sur l'année de construction renseignée dans la dernière estimation
+// détaillée. N'écrase jamais un choix déjà fait manuellement (uniquement
+// les lignes encore à "à faire"). Certains diagnostics (termites, zone
+// préfectorale ; assainissement, raccordement ; Carrez, copropriété) ne
+// peuvent pas être déduits des données actuellement collectées.
+async function applyEligibilityRules(estimations, diagnostics){
+  const derniere = estimations[0];
+  const annee = derniere?.parametres?.annee_construction ? parseInt(derniere.parametres.annee_construction) : null;
+
+  if (!annee) {
+    document.getElementById('diag-eligibilite-note').textContent =
+      "Renseignez l'année de construction dans une estimation détaillée pour activer les suggestions automatiques (amiante, plomb, gaz, électricité).";
+    return false;
+  }
+
+  const byType = Object.fromEntries(diagnostics.map(d => [d.type, d]));
+  const anneeCourante = new Date().getFullYear();
+  const upserts = [];
+
+  function suggest(type, nonConcerne){
+    const existing = byType[type];
+    if (nonConcerne && (!existing || existing.statut === 'a_faire')) {
+      upserts.push({ annonce_id: currentAnnonce.id, type, statut: 'non_concerne' });
+    }
+  }
+
+  suggest('amiante', annee >= 1997);
+  suggest('plomb_crep', annee >= 1949);
+  suggest('gaz', annee >= anneeCourante - 15);
+  suggest('electricite', annee >= anneeCourante - 15);
+
+  document.getElementById('diag-eligibilite-note').textContent =
+    "Amiante, plomb, gaz et électricité suggérés automatiquement à partir de l'année de construction (estimation approximative pour gaz/électricité, à confirmer). Termites (zone préfectorale), assainissement (raccordement) et Carrez (copropriété uniquement) restent à cocher manuellement.";
+
+  if (upserts.length === 0) return false;
+  for (const u of upserts) {
+    await supabaseClient.from('diagnostics').upsert(u, { onConflict: 'annonce_id,type' });
+  }
+  return true;
 }
 
 // ---------- Cartes "Mes services" ----------
@@ -889,6 +957,78 @@ async function updateDiagnostic(type, statut){
   await supabaseClient.from('diagnostics').upsert(payload, { onConflict: 'annonce_id,type' });
   await loadAll();
 }
+
+// ---------- Import d'un dossier de diagnostic (PDF) ----------
+let pendingDiagDocumentId = null;
+
+document.getElementById('btn-import-diag').addEventListener('click', () => {
+  document.getElementById('diag-file-input').click();
+});
+
+document.getElementById('diag-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('diag-import-status');
+  statusEl.textContent = 'Import en cours…';
+
+  const path = `${currentUser.id}/${currentAnnonce.id}/${Date.now()}-${file.name}`;
+  const { error: uploadError } = await supabaseClient.storage.from('diagnostic-documents').upload(path, file);
+  if (uploadError) {
+    statusEl.textContent = "Erreur lors de l'import du fichier.";
+    return;
+  }
+
+  const { data: doc, error: docError } = await supabaseClient.from('documents').insert([{
+    annonce_id: currentAnnonce.id,
+    type: 'diagnostic_technique',
+    statut: 'disponible',
+    fichier_url: path, // bucket privé : chemin de stockage, pas une URL publique
+  }]).select().single();
+
+  if (docError) {
+    statusEl.textContent = "Erreur lors de l'enregistrement du document.";
+    return;
+  }
+
+  pendingDiagDocumentId = doc.id;
+  statusEl.textContent = '';
+
+  document.getElementById('diag-checklist-items').innerHTML = DIAGNOSTIC_TYPES.map(dt => `
+    <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:400;">
+      <input type="checkbox" value="${dt.type}"> ${dt.label}
+    </label>
+  `).join('');
+  document.getElementById('diag-import-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('diag-import-checklist').style.display = 'block';
+
+  e.target.value = '';
+});
+
+document.getElementById('btn-confirm-import').addEventListener('click', async () => {
+  const checked = [...document.querySelectorAll('#diag-checklist-items input:checked')].map(cb => cb.value);
+  const date = document.getElementById('diag-import-date').value || new Date().toISOString().slice(0, 10);
+  const statusEl = document.getElementById('diag-import-status');
+
+  if (checked.length === 0) {
+    statusEl.textContent = 'Sélectionnez au moins un diagnostic couvert par ce dossier.';
+    return;
+  }
+
+  for (const type of checked) {
+    await supabaseClient.from('diagnostics').upsert({
+      annonce_id: currentAnnonce.id,
+      type,
+      statut: 'realise',
+      date_realisation: date,
+      document_id: pendingDiagDocumentId,
+    }, { onConflict: 'annonce_id,type' });
+  }
+
+  document.getElementById('diag-import-checklist').style.display = 'none';
+  statusEl.textContent = `${checked.length} diagnostic(s) marqué(s) comme réalisé(s).`;
+  pendingDiagDocumentId = null;
+  await loadAll();
+});
 
 // ---------- Recherche de diagnostiqueurs locaux (Serper) ----------
 document.getElementById('btn-search-diag').addEventListener('click', async () => {
