@@ -205,6 +205,12 @@
   }
   .photo-tile:hover .photo-set-cover{ opacity:1; }
 
+  /* ---------- RÉSULTATS DE RECHERCHE (prestataires) ---------- */
+  .presta-result{ background:var(--white); border:1px solid var(--line); padding:12px 14px; margin-bottom:8px; }
+  .presta-result a{ color:var(--ink); font-size:0.92rem; text-decoration:none; font-weight:500; }
+  .presta-result a:hover{ text-decoration:underline; }
+  .presta-result p{ font-size:0.82rem; color:var(--ink-soft); margin-top:4px; }
+
   @media (max-width:760px){
     .header-adresse{ display:none; }
     .services-grid{ grid-template-columns:1fr; }
@@ -375,6 +381,13 @@
         <button class="detail-close" data-close>✕</button>
         <h3>Diagnostics obligatoires</h3>
         <table class="data-table" id="table-diagnostics"><tbody></tbody></table>
+
+        <div class="field" style="background:var(--paper); border:1px solid var(--line); padding:16px; margin-top:10px;">
+          <label>Trouver un diagnostiqueur près de chez vous</label>
+          <button type="button" class="btn-ghost" id="btn-search-diag">🔍 Chercher près de <span id="search-diag-ville">votre bien</span></button>
+          <div class="status-msg" id="diag-search-status"></div>
+          <div id="diag-search-results" style="margin-top:12px;"></div>
+        </div>
       </section>
 
       <section id="detail-acheteurs" class="detail-panel">
@@ -846,6 +859,7 @@ document.getElementById('annonce-form').addEventListener('submit', async (e) => 
 
 // ---------- Détail : Diagnostics ----------
 function renderDiagnostics(rows){
+  document.getElementById('search-diag-ville').textContent = currentAnnonce?.ville || 'votre bien';
   const byType = Object.fromEntries(rows.map(r => [r.type, r]));
   const tbody = document.querySelector('#table-diagnostics tbody');
   tbody.innerHTML = `<tr><th>Diagnostic</th><th>Statut</th><th>Date de réalisation</th></tr>` +
@@ -875,6 +889,48 @@ async function updateDiagnostic(type, statut){
   await supabaseClient.from('diagnostics').upsert(payload, { onConflict: 'annonce_id,type' });
   await loadAll();
 }
+
+// ---------- Recherche de diagnostiqueurs locaux (Serper) ----------
+document.getElementById('btn-search-diag').addEventListener('click', async () => {
+  const ville = currentAnnonce?.ville;
+  const statusEl = document.getElementById('diag-search-status');
+  const resultsEl = document.getElementById('diag-search-results');
+  resultsEl.innerHTML = '';
+
+  if (!ville) {
+    statusEl.textContent = "Renseignez d'abord la ville de votre bien.";
+    return;
+  }
+
+  statusEl.textContent = 'Recherche en cours…';
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch(`/api/search-prestataires?ville=${encodeURIComponent(ville)}&metier=${encodeURIComponent('diagnostiqueur immobilier')}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      statusEl.textContent = data.error || 'Une erreur est survenue.';
+      return;
+    }
+
+    statusEl.textContent = '';
+    if (!data.resultats || data.resultats.length === 0) {
+      resultsEl.innerHTML = `<p class="empty-msg">Aucun résultat trouvé.</p>`;
+      return;
+    }
+
+    resultsEl.innerHTML = data.resultats.map(r => `
+      <div class="presta-result">
+        <a href="${r.lien}" target="_blank" rel="noopener">${r.titre}</a>
+        <p>${r.extrait || ''}</p>
+      </div>
+    `).join('');
+  } catch (err) {
+    statusEl.textContent = 'Impossible de joindre le service de recherche.';
+  }
+});
 
 // ---------- Détail : Acheteurs ----------
 function renderAcheteurs(rows){
