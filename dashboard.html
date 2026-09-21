@@ -1206,16 +1206,19 @@ async function loadAcheteurDocuments(){
 function renderFixedDocList(containerId, typesList, docs, categorie){
   const container = document.getElementById(containerId);
   container.innerHTML = typesList.map(t => {
-    const existing = docs.find(d => d.type === t.type);
+    const matching = docs.filter(d => d.type === t.type);
     return `
-      <div class="doc-row">
-        <div>
-          <div class="doc-label">${t.label}</div>
-          <div class="doc-state ${existing ? 'fourni' : ''}">${existing ? 'Fourni le ' + new Date(existing.created_at).toLocaleDateString('fr-FR') : 'Non fourni'}</div>
-        </div>
-        ${existing
-          ? `<button onclick="removeAcheteurDocument('${existing.id}', '${existing.fichier_url}')">Retirer</button>`
-          : `<button onclick="triggerDocUpload('${categorie}', '${t.type}', null)">Ajouter</button>`}
+      <div class="doc-type-group" style="margin-bottom:12px;">
+        <div class="doc-label" style="margin-bottom:4px;">${t.label}</div>
+        ${matching.length === 0
+          ? `<div class="doc-row"><div class="doc-state">Non fourni</div></div>`
+          : matching.map(d => `
+              <div class="doc-row">
+                <div class="doc-state fourni">Fourni le ${new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+                <button onclick="removeAcheteurDocument('${d.id}', '${d.fichier_url}')">Retirer</button>
+              </div>
+            `).join('')}
+        <button onclick="triggerDocUpload('${categorie}', '${t.type}', null)" style="margin-top:4px; font-size:0.74rem; padding:3px 8px;">+ Ajouter ${matching.length > 0 ? 'un autre' : ''}</button>
       </div>
     `;
   }).join('');
