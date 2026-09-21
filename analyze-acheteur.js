@@ -23,7 +23,11 @@
 // de façon visible à chaque affichage du résultat.
  
 const { createClient } = require('@supabase/supabase-js');
-const pdfParse = require('pdf-parse');
+// Import direct du module interne : le point d'entrée standard de pdf-parse
+// contient un code de "mode debug" qui tente de lire un fichier de test au
+// chargement et plante en environnement serverless (fichier absent). Ce
+// chemin d'import l'évite complètement.
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
  
 function getServiceClient() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -261,3 +265,4 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
+ 
