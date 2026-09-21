@@ -205,6 +205,35 @@
   }
   .photo-tile:hover .photo-set-cover{ opacity:1; }
 
+  /* ---------- QUALIFICATION ACHETEURS (documents + analyse IA) ---------- */
+  .qualif-disclaimer{
+    background:#FBEFE8; border:1px solid var(--brick); color:var(--brick-deep);
+    font-size:0.8rem; padding:10px 14px; margin-bottom:16px;
+  }
+  .doc-categories{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:18px; }
+  .doc-category h5{ font-family:'Fraunces', serif; font-weight:500; font-size:0.92rem; margin-bottom:8px; }
+  .doc-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 0; border-bottom:1px solid var(--paper-deep); font-size:0.82rem;
+  }
+  .doc-row .doc-label{ color:var(--ink); }
+  .doc-row .doc-state{ color:var(--ink-soft); font-size:0.76rem; }
+  .doc-row .doc-state.fourni{ color:var(--verdigris); }
+  .doc-row button{
+    background:none; border:1px solid var(--line); border-radius:2px; padding:4px 9px;
+    font-size:0.75rem; cursor:pointer; color:var(--ink);
+  }
+  .score-badge{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:1.3rem; font-weight:600;
+    padding:6px 14px; border-radius:2px; margin-right:10px;
+  }
+  .score-badge.solide{ background:#E3EAE6; color:var(--verdigris); }
+  .score-badge.a_approfondir{ background:#FBF1DE; color:var(--amber); }
+  .score-badge.fragile{ background:#F3E4DC; color:var(--brick); }
+  .score-badge.indetermine{ background:var(--paper-deep); color:var(--ink-soft); }
+  .qualif-list{ margin:10px 0 0; padding-left:18px; font-size:0.85rem; }
+  .qualif-list li{ margin-bottom:4px; }
+
   /* ---------- RÉSULTATS DE RECHERCHE (prestataires) ---------- */
   .presta-result{ background:var(--white); border:1px solid var(--line); padding:12px 14px; margin-bottom:8px; }
   .presta-result a{ color:var(--ink); font-size:0.92rem; text-decoration:none; font-weight:500; }
@@ -419,6 +448,31 @@
           <div class="field"><label>Téléphone</label><input type="text" id="ac-tel"></div>
           <button type="submit">Ajouter</button>
         </form>
+
+        <div id="acheteur-qualification" style="display:none; margin-top:24px; border-top:1px solid var(--line); padding-top:20px;">
+          <h4 id="qualif-acheteur-nom" style="font-size:1.05rem; margin-bottom:6px;"></h4>
+          <div class="qualif-disclaimer">⚠️ Cette lecture est une aide, pas une décision de financement. Vérifiez toujours les documents originaux vous-même avant de vous engager.</div>
+
+          <div class="doc-categories">
+            <div class="doc-category">
+              <h5>Obligatoires</h5>
+              <div id="docs-obligatoire"></div>
+            </div>
+            <div class="doc-category">
+              <h5>Facultatifs</h5>
+              <div id="docs-facultatif"></div>
+            </div>
+            <div class="doc-category">
+              <h5>Libres</h5>
+              <div id="docs-libre"></div>
+              <button type="button" class="btn-ghost" id="btn-add-libre" style="margin-top:8px; font-size:0.8rem; padding:6px 10px;">+ Ajouter un document</button>
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary" style="width:auto; margin-top:18px;" id="btn-analyze-acheteur">✨ Lancer l'analyse IA</button>
+          <div class="status-msg" id="qualif-status"></div>
+          <div id="qualif-result"></div>
+        </div>
       </section>
 
       <section id="detail-documents" class="detail-panel">
@@ -1076,7 +1130,7 @@ document.getElementById('btn-search-diag').addEventListener('click', async () =>
 function renderAcheteurs(rows){
   const tbody = document.querySelector('#table-acheteurs tbody');
   if (rows.length === 0) { tbody.innerHTML = `<tr><td class="empty-msg">Aucun acheteur enregistré pour l'instant.</td></tr>`; return; }
-  tbody.innerHTML = `<tr><th>Nom</th><th>Contact</th><th>Statut</th></tr>` +
+  tbody.innerHTML = `<tr><th>Nom</th><th>Contact</th><th>Statut</th><th></th></tr>` +
     rows.map(a => `
       <tr>
         <td>${a.nom}</td>
@@ -1088,6 +1142,7 @@ function renderAcheteurs(rows){
             ).join('')}
           </select>
         </td>
+        <td><button class="btn-detail" style="padding:5px 10px; font-size:0.78rem;" onclick="openAcheteurQualification('${a.id}', '${a.nom.replace(/'/g, "\\'")}')">Documents</button></td>
       </tr>
     `).join('');
 }
@@ -1113,6 +1168,179 @@ document.getElementById('acheteur-form').addEventListener('submit', async (e) =>
   e.target.reset();
   await loadAll();
 });
+
+// ---------- Qualification acheteur : documents + analyse IA ----------
+let currentAcheteurId = null;
+
+const OBLIGATOIRE_TYPES = [
+  { type: 'accord_principe', label: 'Accord de principe bancaire' },
+  { type: 'avis_imposition', label: "Avis d'imposition" },
+  { type: 'justificatif_apport', label: "Justificatif d'apport personnel" },
+];
+const FACULTATIF_TYPES = [
+  { type: 'bulletins_salaire', label: 'Bulletin de salaire' },
+  { type: 'attestation_employeur', label: 'Attestation employeur' },
+  { type: 'piece_identite', label: "Pièce d'identité" },
+];
+
+async function openAcheteurQualification(acheteurId, nom){
+  currentAcheteurId = acheteurId;
+  document.getElementById('qualif-acheteur-nom').textContent = `Documents de ${nom}`;
+  document.getElementById('acheteur-qualification').style.display = 'block';
+  document.getElementById('acheteur-qualification').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('qualif-result').innerHTML = '';
+  document.getElementById('qualif-status').textContent = '';
+  await loadAcheteurDocuments();
+  await loadLatestQualification();
+}
+
+async function loadAcheteurDocuments(){
+  const { data } = await supabaseClient.from('acheteur_documents').select('*').eq('acheteur_id', currentAcheteurId);
+  const docs = data || [];
+
+  renderFixedDocList('docs-obligatoire', OBLIGATOIRE_TYPES, docs, 'obligatoire');
+  renderFixedDocList('docs-facultatif', FACULTATIF_TYPES, docs, 'facultatif');
+  renderLibreDocList(docs.filter(d => d.categorie === 'libre'));
+}
+
+function renderFixedDocList(containerId, typesList, docs, categorie){
+  const container = document.getElementById(containerId);
+  container.innerHTML = typesList.map(t => {
+    const existing = docs.find(d => d.type === t.type);
+    return `
+      <div class="doc-row">
+        <div>
+          <div class="doc-label">${t.label}</div>
+          <div class="doc-state ${existing ? 'fourni' : ''}">${existing ? 'Fourni le ' + new Date(existing.created_at).toLocaleDateString('fr-FR') : 'Non fourni'}</div>
+        </div>
+        ${existing
+          ? `<button onclick="removeAcheteurDocument('${existing.id}', '${existing.fichier_url}')">Retirer</button>`
+          : `<button onclick="triggerDocUpload('${categorie}', '${t.type}', null)">Ajouter</button>`}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLibreDocList(libreDocs){
+  const container = document.getElementById('docs-libre');
+  if (libreDocs.length === 0) {
+    container.innerHTML = `<p style="font-size:0.8rem; color:var(--ink-soft);">Aucun document libre ajouté.</p>`;
+    return;
+  }
+  container.innerHTML = libreDocs.map(d => `
+    <div class="doc-row">
+      <div>
+        <div class="doc-label">${d.nom_libre || 'Document'}</div>
+        <div class="doc-state fourni">Fourni le ${new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <button onclick="removeAcheteurDocument('${d.id}', '${d.fichier_url}')">Retirer</button>
+    </div>
+  `).join('');
+}
+
+// Input fichier caché, réutilisé pour tous les uploads de documents acheteur.
+const docUploadInput = document.createElement('input');
+docUploadInput.type = 'file';
+docUploadInput.accept = 'image/*,application/pdf';
+docUploadInput.style.display = 'none';
+document.body.appendChild(docUploadInput);
+let pendingUpload = null; // { categorie, type, nomLibre }
+
+function triggerDocUpload(categorie, type, nomLibre){
+  pendingUpload = { categorie, type, nomLibre };
+  docUploadInput.click();
+}
+
+document.getElementById('btn-add-libre').addEventListener('click', () => {
+  const nomLibre = prompt('Nom de ce document (ex. "Simulation de prêt détaillée") :');
+  if (!nomLibre || !nomLibre.trim()) return;
+  triggerDocUpload('libre', 'libre', nomLibre.trim());
+});
+
+docUploadInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !pendingUpload || !currentAcheteurId) return;
+
+  const path = `${currentUser.id}/${currentAnnonce.id}/${currentAcheteurId}/${pendingUpload.type}-${Date.now()}-${file.name}`;
+  const { error: uploadError } = await supabaseClient.storage.from('acheteur-documents').upload(path, file);
+  if (uploadError) {
+    document.getElementById('qualif-status').textContent = "Erreur lors de l'envoi du document.";
+    return;
+  }
+
+  await supabaseClient.from('acheteur_documents').insert([{
+    acheteur_id: currentAcheteurId,
+    categorie: pendingUpload.categorie,
+    type: pendingUpload.type,
+    nom_libre: pendingUpload.nomLibre,
+    fichier_url: path,
+    mime_type: file.type,
+  }]);
+
+  pendingUpload = null;
+  await loadAcheteurDocuments();
+});
+
+async function removeAcheteurDocument(docId, fichierUrl){
+  await supabaseClient.storage.from('acheteur-documents').remove([fichierUrl]);
+  await supabaseClient.from('acheteur_documents').delete().eq('id', docId);
+  await loadAcheteurDocuments();
+}
+
+async function loadLatestQualification(){
+  const { data } = await supabaseClient.from('qualifications_acheteur')
+    .select('*').eq('acheteur_id', currentAcheteurId)
+    .order('created_at', { ascending: false }).limit(1);
+  if (data && data.length > 0) renderQualificationResult(data[0]);
+}
+
+document.getElementById('btn-analyze-acheteur').addEventListener('click', async () => {
+  if (!currentAcheteurId) return;
+  const statusEl = document.getElementById('qualif-status');
+  const btn = document.getElementById('btn-analyze-acheteur');
+  statusEl.textContent = 'Analyse en cours… (peut prendre 20 à 30 secondes)';
+  btn.disabled = true;
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch('/api/analyze-acheteur', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ acheteur_id: currentAcheteurId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      statusEl.textContent = data.error || 'Une erreur est survenue.';
+    } else {
+      statusEl.textContent = '';
+      renderQualificationResult(data);
+    }
+  } catch (err) {
+    statusEl.textContent = "Impossible de joindre le service d'analyse.";
+  }
+
+  btn.disabled = false;
+});
+
+function renderQualificationResult(r){
+  const categorieLabel = { solide: 'Dossier solide', a_approfondir: 'À approfondir', fragile: 'Points de fragilité', indetermine: 'Indéterminé' }[r.categorie] || 'Indéterminé';
+
+  document.getElementById('qualif-result').innerHTML = `
+    <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--line);">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        ${r.score !== null && r.score !== undefined ? `<span class="score-badge ${r.categorie}">${r.score}/100</span>` : ''}
+        <span class="statut-pill ${r.categorie === 'solide' ? 'ok' : r.categorie === 'fragile' ? 'attention' : ''}">${categorieLabel}</span>
+      </div>
+      <p style="font-size:0.9rem; margin-bottom:10px;">${r.synthese || ''}</p>
+      ${r.points_forts && r.points_forts.length ? `<p style="font-size:0.82rem; color:var(--ink-soft); margin-top:10px;">Points relevés :</p><ul class="qualif-list">${r.points_forts.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+      ${r.points_attention && r.points_attention.length ? `<p style="font-size:0.82rem; color:var(--brick); margin-top:10px;">À vérifier :</p><ul class="qualif-list">${r.points_attention.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+      ${r.documents_manquants && r.documents_manquants.length ? `<p style="font-size:0.82rem; color:var(--ink-soft); margin-top:10px;">Pièces obligatoires manquantes : ${r.documents_manquants.join(', ')}</p>` : ''}
+      <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:12px;">${r.modele_utilise ? 'Analyse générée par ' + r.modele_utilise + '. ' : ''}Analyse indicative — à vérifier vous-même avant toute décision.</p>
+    </div>
+  `;
+}
 
 // ---------- Détail : Documents ----------
 function renderDocuments(rows){
