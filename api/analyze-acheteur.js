@@ -149,12 +149,37 @@ module.exports = async (req, res) => {
  
     // Répartit les documents entre "PDF à texte extractible" et "images",
     // et repère ceux qu'on ne peut pas exploiter (PDF scannés sans texte).
+    // Les images coûtent beaucoup de tokens au modèle (limite gratuite Groq :
+    // 7 000 tokens/minute) — on en plafonne le nombre strictement, et on
+    // priorise les pièces obligatoires si tous les documents ne peuvent pas
+    // être envoyés dans une seule analyse.
+    const CATEGORIE_PRIORITE = { obligatoire: 0, facultatif: 1, libre: 2 };
+    const documentsTries = [...documents].sort(
+      (a, b) => (CATEGORIE_PRIORITE[a.categorie] ?? 3) - (CATEGORIE_PRIORITE[b.categorie] ?? 3)
+    );
+ 
+    const MAX_IMAGES = 2;
+    const MAX_TEXT_DOCS = 4;
+    const MAX_TEXT_CHARS_PER_DOC = 2500;
+ 
     const textBlocks = [];    // { label, texte }
     const imageBlocks = [];   // { label, contentBlock }
     const nonExploitables = [];
  
-    for (const doc of documents.slice(0, 8)) { // plafond raisonnable par analyse
+    for (const doc of documentsTries) {
       const lowerUrl = doc.fichier_url.toLowerCase();
+      const isPdf = lowerUrl.endsWith('.pdf');
+      const isImage = IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext));
+ 
+      if (isImage && imageBlocks.length >= MAX_IMAGES) {
+        nonExploitables.push(`${docLabel(doc)} (non analysé cette fois — limite de taille de requête atteinte)`);
+        continue;
+      }
+      if (isPdf && textBlocks.length >= MAX_TEXT_DOCS) {
+        nonExploitables.push(`${docLabel(doc)} (non analysé cette fois — limite de taille de requête atteinte)`);
+        continue;
+      }
+ 
       const { data: fileBlob, error: dlError } = await supabase.storage
         .from('acheteur-documents')
         .download(doc.fichier_url);
@@ -165,19 +190,19 @@ module.exports = async (req, res) => {
       }
       const buffer = Buffer.from(await fileBlob.arrayBuffer());
  
-      if (lowerUrl.endsWith('.pdf')) {
+      if (isPdf) {
         try {
           const parsed = await pdfParse(buffer);
           const texte = (parsed.text || '').trim();
           if (texte.length >= MIN_TEXT_LENGTH) {
-            textBlocks.push({ label: docLabel(doc), texte: texte.slice(0, 6000) }); // borne la taille envoyée au modèle
+            textBlocks.push({ label: docLabel(doc), texte: texte.slice(0, MAX_TEXT_CHARS_PER_DOC) });
           } else {
             nonExploitables.push(`${docLabel(doc)} (PDF scanné sans texte détectable — non lisible automatiquement pour l'instant)`);
           }
         } catch (e) {
           nonExploitables.push(`${docLabel(doc)} (erreur de lecture du PDF)`);
         }
-      } else if (IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext))) {
+      } else if (isImage) {
         imageBlocks.push({
           label: docLabel(doc),
           contentBlock: {
@@ -265,4 +290,3 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
- 
