@@ -478,6 +478,13 @@
       <section id="detail-documents" class="detail-panel">
         <button class="detail-close" data-close>✕</button>
         <h3>Documents juridiques</h3>
+        <p style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:18px; max-width:640px;">
+          Cette liste centralise les pièces généralement demandées par le notaire pour préparer la vente.
+          Certaines sont à fournir dès maintenant, d'autres n'existeront qu'à une étape ultérieure de votre
+          parcours (comme le compromis, rédigé une fois un acheteur trouvé). Marquez un document "Disponible"
+          dès que vous l'avez en main — ça ne le téléverse pas sur Clef pour l'instant, c'est un simple suivi
+          pour savoir où vous en êtes.
+        </p>
         <table class="data-table" id="table-documents"><tbody></tbody></table>
       </section>
 
@@ -505,12 +512,42 @@ const DIAGNOSTIC_TYPES = [
   { type: 'carrez', label: 'Métrage Carrez' },
 ];
 const DOCUMENT_TYPES = [
-  { type: 'diagnostic_technique', label: 'Dossier de diagnostic technique' },
-  { type: 'titre_propriete', label: 'Titre de propriété' },
-  { type: 'taxe_fonciere', label: 'Dernier avis de taxe foncière' },
-  { type: 'compromis_vente', label: 'Compromis de vente' },
-  { type: 'attestation_assurance', label: "Attestation d'assurance habitation" },
-  { type: 'plan_cadastral', label: 'Plan cadastral' },
+  {
+    type: 'diagnostic_technique',
+    label: 'Dossier de diagnostic technique',
+    description: "Regroupe tous les diagnostics obligatoires (DPE, amiante, termites...) en un seul document.",
+    ou: "Remis par votre diagnostiqueur — se complète automatiquement au fil du service \"Diagnostics obligatoires\".",
+  },
+  {
+    type: 'titre_propriete',
+    label: 'Titre de propriété',
+    description: "L'acte notarié qui prouve que vous êtes bien propriétaire du bien.",
+    ou: "Chez le notaire qui a géré votre achat, ou aux Archives notariales si vous l'avez perdu.",
+  },
+  {
+    type: 'taxe_fonciere',
+    label: 'Dernier avis de taxe foncière',
+    description: "Sert de référence pour informer l'acheteur des charges annuelles liées au bien.",
+    ou: "Espace particulier sur impots.gouv.fr, rubrique \"Documents\".",
+  },
+  {
+    type: 'compromis_vente',
+    label: 'Compromis de vente',
+    description: "L'avant-contrat qui engage vendeur et acheteur avant la signature définitive.",
+    ou: "Rédigé par le notaire une fois qu'un acheteur est trouvé — normal que ce soit \"Manquant\" pour l'instant.",
+  },
+  {
+    type: 'attestation_assurance',
+    label: "Attestation d'assurance habitation",
+    description: "Prouve que le bien est actuellement assuré.",
+    ou: "Auprès de votre assureur habitation.",
+  },
+  {
+    type: 'plan_cadastral',
+    label: 'Plan cadastral',
+    description: "Localise précisément votre parcelle et ses limites.",
+    ou: "Gratuitement sur cadastre.gouv.fr, en cherchant votre adresse.",
+  },
 ];
 
 let currentUser = null;
@@ -1354,7 +1391,11 @@ function renderDocuments(rows){
       const existing = byType[dt.type];
       return `
         <tr>
-          <td>${dt.label}</td>
+          <td>
+            <div>${dt.label}</div>
+            <div style="font-size:0.78rem; color:var(--ink-soft); margin-top:3px; max-width:420px;">${dt.description}</div>
+            <div style="font-size:0.76rem; color:var(--verdigris); margin-top:2px;">📍 ${dt.ou}</div>
+          </td>
           <td>
             <select class="statut-select" onchange="updateDocument('${dt.type}', this.value)">
               ${['manquant', 'en_attente', 'disponible'].map(s =>
