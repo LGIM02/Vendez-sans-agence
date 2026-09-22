@@ -400,10 +400,16 @@
               <option value="a_completer">À compléter</option>
               <option value="prete_a_publier">Prête à publier</option>
               <option value="publiee">Publiée</option>
+              <option value="vendue">Vendue</option>
             </select>
           </div>
           <button type="submit" class="btn-primary" style="width:auto;">Enregistrer</button>
         </form>
+
+        <div id="paiement-section" style="display:none; margin-top:20px; padding-top:18px; border-top:1px solid var(--line);">
+          <h4 style="font-size:1rem; margin-bottom:8px;">Forfait Clef</h4>
+          <div id="paiement-status"></div>
+        </div>
       </section>
 
       <section id="detail-diagnostics" class="detail-panel">
@@ -887,6 +893,7 @@ function renderAnnonceForm(){
   document.getElementById('an-description').value = currentAnnonce.description || '';
   document.getElementById('an-statut').value = currentAnnonce.statut || 'brouillon';
   renderPhotoGrid();
+  renderPaiementSection();
 }
 
 // ---------- Grille de photos (façon LeBonCoin) ----------
@@ -1015,6 +1022,86 @@ document.getElementById('annonce-form').addEventListener('submit', async (e) => 
 
   if (!error) { currentAnnonce = data; await loadAll(); }
 });
+
+// ---------- Forfait Clef (paiement Stripe) ----------
+// Le statut de paiement est en lecture seule côté client (RLS) — la seule
+// source de vérité est le webhook Stripe, jamais une écriture directe ici.
+async function renderPaiementSection(){
+  const section = document.getElementById('paiement-section');
+  const statusEl = document.getElementById('paiement-status');
+
+  if (currentAnnonce.statut !== 'vendue') {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  statusEl.textContent = 'Vérification du statut de paiement…';
+
+  const { data } = await supabaseClient
+    .from('paiements').select('*').eq('annonce_id', currentAnnonce.id)
+    .order('created_at', { ascending: false }).limit(1);
+
+  const dernier = data && data[0];
+
+  if (dernier && dernier.statut === 'paye') {
+    statusEl.innerHTML = `<span class="statut-pill ok">✓ Payé le ${new Date(dernier.paid_at).toLocaleDateString('fr-FR')}</span>`;
+    return;
+  }
+
+  statusEl.innerHTML = `
+    <p style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:10px;">
+      Votre bien est marqué comme vendu — le forfait de 390&nbsp;€ est maintenant dû.
+    </p>
+    <button type="button" class="btn-primary" style="width:auto;" id="btn-payer-forfait">Payer le forfait (390 €)</button>
+    <div class="status-msg" id="paiement-error"></div>
+  `;
+
+  document.getElementById('btn-payer-forfait').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-payer-forfait');
+    const errEl = document.getElementById('paiement-error');
+    btn.disabled = true;
+    btn.textContent = 'Redirection…';
+
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ annonce_id: currentAnnonce.id }),
+      });
+      const result = await res.json();
+
+      if (!res.ok || !result.url) {
+        errEl.textContent = result.error || 'Une erreur est survenue.';
+        btn.disabled = false;
+        btn.textContent = 'Payer le forfait (390 €)';
+        return;
+      }
+
+      window.location.href = result.url; // redirection vers la page de paiement Stripe
+    } catch (err) {
+      errEl.textContent = "Impossible de joindre le service de paiement.";
+      btn.disabled = false;
+      btn.textContent = 'Payer le forfait (390 €)';
+    }
+  });
+}
+
+// Message de retour après un paiement Stripe (succès ou annulation).
+(function handlePaiementRedirect(){
+  const params = new URLSearchParams(window.location.search);
+  const paiement = params.get('paiement');
+  if (!paiement) return;
+
+  const message = paiement === 'succes'
+    ? "Paiement effectué — merci ! Le statut se met à jour ci-dessous (quelques secondes)."
+    : "Paiement annulé — vous pouvez réessayer à tout moment depuis l'onglet Annonce.";
+  alert(message);
+
+  params.delete('paiement');
+  const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, '', newUrl);
+})();
 
 // ---------- Détail : Diagnostics ----------
 function renderDiagnostics(rows){
