@@ -410,6 +410,13 @@
           <h4 style="font-size:1rem; margin-bottom:8px;">Forfait Clef</h4>
           <div id="paiement-status"></div>
         </div>
+
+        <div id="dossier-section" style="display:none; margin-top:20px; padding-top:18px; border-top:1px solid var(--line);">
+          <h4 style="font-size:1rem; margin-bottom:8px;">Dossier de vente</h4>
+          <p style="font-size:0.85rem; color:var(--ink-soft); margin-bottom:10px;">Un récapitulatif prêt à transmettre à votre notaire (prix retenu, acheteur, état des diagnostics).</p>
+          <button type="button" class="btn-ghost" id="btn-dossier-vente">📄 Télécharger le dossier de vente</button>
+          <div class="status-msg" id="dossier-status"></div>
+        </div>
       </section>
 
       <section id="detail-diagnostics" class="detail-panel">
@@ -1029,9 +1036,11 @@ document.getElementById('annonce-form').addEventListener('submit', async (e) => 
 async function renderPaiementSection(){
   const section = document.getElementById('paiement-section');
   const statusEl = document.getElementById('paiement-status');
+  const dossierSection = document.getElementById('dossier-section');
 
   if (currentAnnonce.statut !== 'vendue') {
     section.style.display = 'none';
+    dossierSection.style.display = 'none';
     return;
   }
   section.style.display = 'block';
@@ -1045,12 +1054,16 @@ async function renderPaiementSection(){
 
   if (dernier && dernier.statut === 'paye') {
     statusEl.innerHTML = `<span class="statut-pill ok">✓ Payé le ${new Date(dernier.paid_at).toLocaleDateString('fr-FR')}</span>`;
+    dossierSection.style.display = 'block';
     return;
   }
+
+  dossierSection.style.display = 'none';
 
   statusEl.innerHTML = `
     <p style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:10px;">
       Votre bien est marqué comme vendu — le forfait de 390&nbsp;€ est maintenant dû.
+      Le dossier de vente à transmettre à votre notaire sera disponible juste après le paiement.
     </p>
     <button type="button" class="btn-primary" style="width:auto;" id="btn-payer-forfait">Payer le forfait (390 €)</button>
     <div class="status-msg" id="paiement-error"></div>
@@ -1086,6 +1099,42 @@ async function renderPaiementSection(){
     }
   });
 }
+
+document.getElementById('btn-dossier-vente').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-dossier-vente');
+  const statusEl = document.getElementById('dossier-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Génération du dossier…';
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch(`/api/generate-dossier-vente?annonce_id=${currentAnnonce.id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      statusEl.textContent = errData.error || 'Une erreur est survenue.';
+      btn.disabled = false;
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dossier-vente-${currentAnnonce.ville || 'bien'}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    statusEl.textContent = '';
+  } catch (err) {
+    statusEl.textContent = "Impossible de générer le dossier.";
+  }
+
+  btn.disabled = false;
+});
 
 // Message de retour après un paiement Stripe (succès ou annulation).
 (function handlePaiementRedirect(){
